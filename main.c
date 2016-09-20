@@ -19,7 +19,10 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
+
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -44,7 +47,7 @@ struct sdr {
   int bufs_count;
 };
 
-static int ioctl_irqsafe(int fh, unsigned long int request, void *arg)
+static bool ioctl_irqsafe(int fh, unsigned long int request, void *arg)
 {
   int ret;
 
@@ -52,16 +55,16 @@ static int ioctl_irqsafe(int fh, unsigned long int request, void *arg)
     ret = v4l2_ioctl(fh, request, arg);
   } while (ret == -1 && ((errno == EINTR) || (errno == EAGAIN)));
 
-  return(ret);
+  return(ret >= 0);
 }
 
-int sdr_open(struct sdr *sdr)
+bool sdr_open(struct sdr *sdr)
 {
   struct v4l2_format fmt;
 
   if (!sdr || !sdr->dev_path) {
     fprintf(stderr, "sdr_open: No sdr structure or device\n");
-    return (-1);
+    return (false);
   }
 
   sdr->fd= open(sdr->dev_path, O_RDWR, 0);
@@ -69,7 +72,7 @@ int sdr_open(struct sdr *sdr)
     fprintf(stderr, "sdr_open: open(%s) failed (%s)\n",
             sdr->dev_path, strerror(errno));
 
-    return (-1);
+    return (false);
   }
 
   // Set the desired sample format to unsigned 8 bit
@@ -77,18 +80,20 @@ int sdr_open(struct sdr *sdr)
   fmt.type= V4L2_BUF_TYPE_SDR_CAPTURE;
   fmt.fmt.sdr.pixelformat= V4L2_PIX_FMT_SDR_U8;
 
-  if (ioctl_irqsafe(sdr->fd, VIDIOC_S_FMT, &fmt) < 0) {
+  if (!ioctl_irqsafe(sdr->fd, VIDIOC_S_FMT, &fmt)) {
     fprintf(stderr, "sdr_open: ioctl failed %d, %s\n", errno, strerror(errno));
-    return (-1);
+    return (false);
   }
 
   if (fmt.fmt.sdr.pixelformat != V4L2_PIX_FMT_SDR_U8) {
     fprintf(stderr, "sdr_open: could not get desired pixel format\n");
-    return (-1);
+    return (false);
   }
+
+  return (true);
 }
 
-int sdr_connect_buffers(struct sdr *sdr, int bufs_count)
+bool sdr_connect_buffers(struct sdr *sdr, uint32_t bufs_count)
 {
   struct v4l2_requestbuffers req;
   struct v4l2_buffer buf;
@@ -97,7 +102,7 @@ int sdr_connect_buffers(struct sdr *sdr, int bufs_count)
     fprintf(stderr, "sdr_connect_buffers: No sdr structure, device not open "
             "or buffers already set\n");
 
-    return (-1);
+    return (false);
   }
 
   memset(&req, 0, sizeof(req));
@@ -106,27 +111,27 @@ int sdr_connect_buffers(struct sdr *sdr, int bufs_count)
   req.memory= V4L2_MEMORY_MMAP;
 
   // Ask the v4l kernel code to prepare bufs_count buffers for us
-  if (ioctl_irqsafe(sdr->fd, VIDIOC_REQBUFS, &req) < 0) {
+  if (!ioctl_irqsafe(sdr->fd, VIDIOC_REQBUFS, &req)) {
     fprintf(stderr, "sdr_connect_buffers: ioctl failed %d, %s\n", errno, strerror(errno));
-    return (-1);
+    return (false);
   }
 
   sdr->buffers= calloc(bufs_count, sizeof(*sdr->buffers));
   if (!sdr->buffers) {
     fprintf(stderr, "sdr_connect_buffers: buffer list allocation failed\n");
-    return (-1);
+    return (false);
   }
 
   // Retreive the bufs_count buffers from the kernel
-  for (int bidx=0; bidx < req.count; bidx++) {
+  for (uint32_t bidx=0; bidx < req.count; bidx++) {
     memset(&buf, 0, sizeof(buf));
     buf.type= V4L2_BUF_TYPE_SDR_CAPTURE;
     buf.memory= V4L2_MEMORY_MMAP;
     buf.index= bidx;
 
-    if (ioctl_irqsafe(sdr->fd, VIDIOC_QUERYBUF, &buf) < 0) {
+    if (!ioctl_irqsafe(sdr->fd, VIDIOC_QUERYBUF, &buf)) {
       fprintf(stderr, "sdr_connect_buffers: ioctl failed %d, %s\n", errno, strerror(errno));
-      return (-1);
+      return (false);
     }
 
     sdr->buffers[bidx].len= buf.length;
@@ -135,49 +140,55 @@ int sdr_connect_buffers(struct sdr *sdr, int bufs_count)
 
     if (sdr->buffers[bidx].start == MAP_FAILED) {
       fprintf(stderr, "sdr_connect_buffers: mmap failed\n");
-      return (-1);
+      return (false);
     }
   }
 
   // Queue the received buffers as available
-  for (int bidx=0; bidx < req.count; bidx++) {
+  for (uint32_t bidx=0; bidx < req.count; bidx++) {
     memset(&buf, 0, sizeof(buf));
     buf.type = V4L2_BUF_TYPE_SDR_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
     buf.index = bidx;
 
-    if (ioctl_irqsafe(sdr->fd, VIDIOC_QBUF, &buf) < 0) {
+    if (!ioctl_irqsafe(sdr->fd, VIDIOC_QBUF, &buf)) {
       fprintf(stderr, "sdr_connect_buffers: ioctl failed %d, %s\n", errno, strerror(errno));
-      return (-1);
+      return (false);
     }
   }
+
+  return (true);
 }
 
-int sdr_start(struct sdr *sdr)
+bool sdr_start(struct sdr *sdr)
 {
   enum v4l2_buf_type type;
 
   type= V4L2_BUF_TYPE_SDR_CAPTURE;
 
-  if (ioctl_irqsafe(sdr->fd, VIDIOC_STREAMON, &type) < 0) {
+  if (!ioctl_irqsafe(sdr->fd, VIDIOC_STREAMON, &type)) {
     fprintf(stderr, "sdr_start: ioctl failed %d, %s\n", errno, strerror(errno));
-    return (-1);
+    return (false);
   }
+
+  return (true);
 }
 
 
-int sdr_stop(struct sdr *sdr)
+bool sdr_stop(struct sdr *sdr)
 {
   enum v4l2_buf_type type;
 
   type= V4L2_BUF_TYPE_SDR_CAPTURE;
 
-  if (ioctl_irqsafe(sdr->fd, VIDIOC_STREAMOFF, &type) < 0) {
+  if (!ioctl_irqsafe(sdr->fd, VIDIOC_STREAMOFF, &type)) {
     fprintf(stderr, "sdr_stop: ioctl failed %d, %s\n", errno, strerror(errno));
-    return (-1);
+    return (false);
   }
+
+  return (true);
 }
 
-int main(int argc, char **argv)
+int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
 }

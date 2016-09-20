@@ -4,9 +4,9 @@ CFLAGS+= -Wall -Wextra -Wpedantic -Wstrict-overflow -Werror -Wshadow -fno-strict
 CFLAGS+= -pthread
 CFLAGS+= -lfftw3f -lv4l2
 
-SOURCES= main.c
+SOURCES= main.c sdr.c
 
 all: main
 
-main: main.o
-	gcc -o main main.o $(CFLAGS)
+main: main.o sdr.o
+	gcc -o main main.o sdr.o $(CFLAGS)

@@ -17,47 +17,28 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <pthread.h>
-#include <stdio.h>
+#pragma once
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include <errno.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
+#define V4L2_PIX_FMT_SDR_U8     v4l2_fourcc('C', 'U', '0', '8')
+#define V4L2_PIX_FMT_SDR_U16LE  v4l2_fourcc('C', 'U', '1', '6')
 
-#include <fftw.h>
+struct sdr {
+  char *dev_path;
+  int fd;
 
-#include "sdr.h"
+  struct {
+    size_t len;
+    void *start;
+  } *buffers;
+  uint32_t bufs_count;
+};
 
-int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
-{
-  struct sdr dev= {.dev_path= "/dev/swradio0"};
-
-  if(!sdr_open(&dev)) {
-    return (-1);
-  }
-
-  if (!sdr_connect_buffers(&dev, 8)) {
-    return (-1);
-  }
-
-  for (uint32_t i=0; i<dev.bufs_count; i++) {
-    printf("start: %p, len: %ld\n", dev.buffers[i].start, dev.buffers[i].len);
-  }
-
-  if(!sdr_start(&dev)) {
-    return (-1);
-  }
-
-  if(!sdr_stop(&dev)) {
-    return (-1);
-  }
-
-  if(!sdr_close(&dev)) {
-    return (-1);
-  }
-}
+bool sdr_open(struct sdr *sdr);
+bool sdr_connect_buffers(struct sdr *sdr, uint32_t bufs_count);
+bool sdr_start(struct sdr *sdr);
+bool sdr_stop(struct sdr *sdr);
+bool sdr_close(struct sdr *sdr);

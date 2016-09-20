@@ -33,6 +33,8 @@
 
 #include "sdr.h"
 
+
+
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
   struct sdr dev= {.dev_path= "/dev/swradio0"};
@@ -41,7 +43,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return (-1);
   }
 
-  if (!sdr_connect_buffers(&dev, 8)) {
+  if (!sdr_connect_buffers(&dev, 4)) {
     return (-1);
   }
 
@@ -53,6 +55,26 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return (-1);
   }
 
+  for (int i=0; i<32; i++) {
+    ssize_t rlen;
+    uint8_t *samp_buf;
+
+    rlen= sdr_peek(&dev, 4000, (void **)&samp_buf);
+    if (rlen<0) {
+      return(-1);
+    }
+
+    printf("Read %6ld bytes:", rlen);
+    for (int bte= 0; bte < 40; bte+=2) {
+      printf("%3d %3d, ", samp_buf[bte], samp_buf[bte+1]);
+    }
+    printf("\n");
+
+    if(!sdr_done(&dev)) {
+      return(-1);
+    }
+  }
+
   if(!sdr_stop(&dev)) {
     return (-1);
   }
@@ -60,4 +82,8 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
   if(!sdr_close(&dev)) {
     return (-1);
   }
+
+  fprintf(stderr, "So long and thanks for all the fish!\n");
+
+  return(0);
 }

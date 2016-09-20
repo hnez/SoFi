@@ -205,8 +205,122 @@ bool sdr_close(struct sdr *sdr)
     v4l2_munmap(sdr->buffers[bidx].start, sdr->buffers[bidx].len);
   }
 
-  free(sdr->buffers);
+  if (sdr->buffers) {
+    free(sdr->buffers);
+  }
+
   v4l2_close(sdr->fd);
 
   return(false);
+}
+
+/**
+ * Get a pointer to the next samples.
+ *
+ * @param sdr pointer to a opened sdr structure
+ * @param len the desired length to read
+ * @param samples. A pointer to the samples will be written here
+ * @return the nuber of bytes that may be read from the sample buffer or -1 on error
+ */
+ssize_t sdr_peek(struct sdr *sdr, size_t len, void **samples)
+{
+  if (!sdr || sdr->fd < 0 || !sdr->buffers) {
+    fprintf(stderr, "sdr_peek: missing sdr struct or fd is closed\n");
+    return(-1);
+  }
+
+  // check if there is already a buffer being read from
+  if (!sdr->buffer_reader.opened) {
+    struct v4l2_buffer buf;
+
+    memset(&buf, 0, sizeof(buf));
+    buf.type= V4L2_BUF_TYPE_SDR_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP;
+
+    if(!ioctl_irqsafe(sdr->fd, VIDIOC_DQBUF, &buf)) {
+      fprintf(stderr, "sdr_peek: ioctl failed %d, %s\n", errno, strerror(errno));
+      return(-1);
+    }
+
+    sdr->buffer_reader.opened= true;
+
+    sdr->buffer_reader.bufnum= buf.index;
+    sdr->buffer_reader.rdpos= 0;
+    sdr->buffer_reader.peekpos= 0;
+  }
+
+  uint32_t bufnum= sdr->buffer_reader.bufnum;
+  uint32_t rdpos= sdr->buffer_reader.rdpos;
+
+  if (bufnum > sdr->bufs_count) {
+    fprintf(stderr,
+            "sdr_peek: illegal bufnum index (%d/%d)\n",
+            bufnum, sdr->bufs_count);
+
+    return (-1);
+  }
+
+  if (rdpos > sdr->buffers[bufnum].len) {
+    fprintf(stderr, "sdr_peek: buffer empty?\n");
+
+    return (-1);
+  }
+
+  size_t len_rem= sdr->buffers[bufnum].len - rdpos;
+  size_t len_trunc= len_rem < len ? len_rem : len;
+
+  *samples= (uint8_t *)sdr->buffers[bufnum].start + rdpos;
+  sdr->buffer_reader.peekpos+= len_trunc;
+
+  return(len_trunc);
+}
+
+/**
+ * Mark the last peeked samples as done.
+ * The pointer returned by peek is no longer valid after marking it done.
+ */
+bool sdr_done(struct sdr *sdr)
+{
+  if (!sdr || sdr->fd < 0 || !sdr->buffers) {
+    fprintf(stderr, "sdr_peek: missing sdr struct or buffers\n");
+    return(-1);
+  }
+
+  if (!sdr->buffer_reader.opened) {
+    fprintf(stderr, "sdr_peek: buffer_reader not open. Peek was not called before\n");
+    return(-1);
+  }
+
+  sdr->buffer_reader.rdpos= sdr->buffer_reader.peekpos;
+
+  size_t rdpos= sdr->buffer_reader.rdpos;
+  uint32_t bufnum= sdr->buffer_reader.bufnum;
+
+  if (rdpos > sdr->buffers[bufnum].len) {
+    fprintf(stderr, "sdr_done: rdpos > buffer_len\n");
+    return (false);
+  }
+
+  // Check if buffer is empty
+  if (rdpos == sdr->buffers[bufnum].len) {
+    struct v4l2_buffer buf;
+
+    // Requeue this buffer
+    memset(&buf, 0, sizeof(buf));
+    buf.type= V4L2_BUF_TYPE_SDR_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP;
+    buf.index = bufnum;
+
+    if (!ioctl_irqsafe(sdr->fd, VIDIOC_QBUF, &buf)) {
+      fprintf(stderr, "sdr_done: ioctl failed %d, %s\n", errno, strerror(errno));
+      return (false);
+    }
+
+    /* Mark the reader as closed an make
+     * accidential accesses break horribly */
+    sdr->buffer_reader.opened= false;
+    sdr->buffer_reader.bufnum= (uint32_t) -1;
+  }
+
+  return(true);
 }

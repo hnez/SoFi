@@ -33,8 +33,8 @@
 #include <libv4l2.h>
 #include <linux/videodev2.h>
 
-#define V4L2_PIX_FMT_SDR_U8     v4l2_fourcc('D', 'U', '0', '8')
-#define V4L2_PIX_FMT_SDR_U16LE  v4l2_fourcc('D', 'U', '1', '6')
+#define V4L2_PIX_FMT_SDR_U8     v4l2_fourcc('C', 'U', '0', '8')
+#define V4L2_PIX_FMT_SDR_U16LE  v4l2_fourcc('C', 'U', '1', '6')
 
 struct sdr {
   char *dev_path;
@@ -44,7 +44,7 @@ struct sdr {
     size_t len;
     void *start;
   } *buffers;
-  int bufs_count;
+  uint32_t bufs_count;
 };
 
 static bool ioctl_irqsafe(int fh, unsigned long int request, void *arg)
@@ -67,7 +67,7 @@ bool sdr_open(struct sdr *sdr)
     return (false);
   }
 
-  sdr->fd= open(sdr->dev_path, O_RDWR, 0);
+  sdr->fd= open(sdr->dev_path, O_RDWR);
   if (sdr->fd < 0) {
     fprintf(stderr, "sdr_open: open(%s) failed (%s)\n",
             sdr->dev_path, strerror(errno));
@@ -86,7 +86,14 @@ bool sdr_open(struct sdr *sdr)
   }
 
   if (fmt.fmt.sdr.pixelformat != V4L2_PIX_FMT_SDR_U8) {
-    fprintf(stderr, "sdr_open: could not get desired pixel format\n");
+    fprintf(stderr,
+            "sdr_open: could not get desired pixel format "
+            "ioctl returned format %c%c%c%c\n",
+            (fmt.fmt.sdr.pixelformat >> 0) & 0xff,
+            (fmt.fmt.sdr.pixelformat >> 8) & 0xff,
+            (fmt.fmt.sdr.pixelformat >> 16) & 0xff,
+            (fmt.fmt.sdr.pixelformat >> 24) & 0xff);
+
     return (false);
   }
 
@@ -157,12 +164,19 @@ bool sdr_connect_buffers(struct sdr *sdr, uint32_t bufs_count)
     }
   }
 
+  sdr->bufs_count= bufs_count;
+
   return (true);
 }
 
 bool sdr_start(struct sdr *sdr)
 {
   enum v4l2_buf_type type;
+
+  if (!sdr || sdr->fd < 0) {
+    fprintf(stderr, "sdr_start: missing sdr struct or fd is closed\n");
+    return(false);
+  }
 
   type= V4L2_BUF_TYPE_SDR_CAPTURE;
 
@@ -179,6 +193,11 @@ bool sdr_stop(struct sdr *sdr)
 {
   enum v4l2_buf_type type;
 
+  if (!sdr || sdr->fd < 0) {
+    fprintf(stderr, "sdr_stop: missing sdr struct or fd is closed\n");
+    return(false);
+  }
+
   type= V4L2_BUF_TYPE_SDR_CAPTURE;
 
   if (!ioctl_irqsafe(sdr->fd, VIDIOC_STREAMOFF, &type)) {
@@ -189,6 +208,44 @@ bool sdr_stop(struct sdr *sdr)
   return (true);
 }
 
+bool sdr_close(struct sdr *sdr)
+{
+  if (!sdr || sdr->fd < 0 || (sdr->bufs_count && !sdr->buffers)) {
+    fprintf(stderr, "sdr_close: missing sdr struct or fd is closed\n");
+    return(false);
+  }
+
+  for (uint32_t bidx= 0; bidx < sdr->bufs_count; bidx++) {
+    v4l2_munmap(sdr->buffers[bidx].start, sdr->buffers[bidx].len);
+  }
+
+  free(sdr->buffers);
+  v4l2_close(sdr->fd);
+
+  return(false);
+}
+
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
+  struct sdr dev= {.dev_path= "/dev/swradio0"};
+
+  if(!sdr_open(&dev)) {
+    return (-1);
+  }
+
+  if (!sdr_connect_buffers(&dev, 8)) {
+    return (-1);
+  }
+
+  if(!sdr_start(&dev)) {
+    return (-1);
+  }
+
+  if(!sdr_stop(&dev)) {
+    return (-1);
+  }
+
+  if(!sdr_close(&dev)) {
+    return (-1);
+  }
 }

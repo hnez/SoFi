@@ -43,7 +43,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return (-1);
   }
 
-  if (!sdr_connect_buffers(&dev, 4)) {
+  if (!sdr_connect_buffers(&dev, 8)) {
     return (-1);
   }
 
@@ -55,7 +55,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return (-1);
   }
 
-  for (int i=0; i<32; i++) {
+  for (int i=0; i<4096; i++) {
     ssize_t rlen;
     uint8_t *samp_buf;
 
@@ -66,7 +66,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 
     printf("Read %6ld bytes:", rlen);
     for (int bte= 0; bte < 40; bte+=2) {
-      printf("%3d %3d, ", samp_buf[bte], samp_buf[bte+1]);
+      printf("%3d %3d, ", samp_buf[bte]-127, samp_buf[bte+1]-127);
     }
     printf("\n");
 

@@ -29,58 +29,48 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 
-#include <fftw.h>
-
 #include "sdr.h"
-
-
+#include "fft_thread.h"
 
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
-  struct sdr dev= {.dev_path= "/dev/swradio0"};
+  struct fft_thread ft= {0};
+  ft.dev.dev_path= "/dev/swradio0";
 
-  if(!sdr_open(&dev)) {
+  if(!sdr_open(&ft.dev)) {
     return (-1);
   }
 
-  if (!sdr_connect_buffers(&dev, 8)) {
+  if (!sdr_connect_buffers(&ft.dev, 8)) {
     return (-1);
   }
 
-  for (uint32_t i=0; i<dev.bufs_count; i++) {
-    printf("start: %p, len: %ld\n", dev.buffers[i].start, dev.buffers[i].len);
-  }
-
-  if(!sdr_start(&dev)) {
+  if(!sdr_start(&ft.dev)) {
     return (-1);
   }
 
-  for (int i=0; i<4096; i++) {
-    ssize_t rlen;
-    uint8_t *samp_buf;
+  if(!ft_setup(&ft, 1<<14)) {
+    return(-1);
+  }
 
-    rlen= sdr_peek(&dev, 4000, (void **)&samp_buf);
-    if (rlen<0) {
+  for (int i=0; i<200; i++) {
+    if(!ft_get_input(&ft)) {
       return(-1);
     }
 
-    printf("Read %6ld bytes:", rlen);
-    for (int bte= 0; bte < 40; bte+=2) {
-      printf("%3d %3d, ", samp_buf[bte]-127, samp_buf[bte+1]-127);
-    }
-    printf("\n");
-
-    if(!sdr_done(&dev)) {
+    if(!ft_run_fft(&ft)) {
       return(-1);
     }
+
+    if (i==100) {
+      for (uint32_t j=0; j<ft.len_fft; j++) {
+        printf("%f, %f\n", ft.buf_out[j][0], ft.buf_out[j][1]);
+      }
+    }
   }
 
-  if(!sdr_stop(&dev)) {
-    return (-1);
-  }
-
-  if(!sdr_close(&dev)) {
-    return (-1);
+  if(!ft_destroy(&ft)) {
+    return(-1);
   }
 
   fprintf(stderr, "So long and thanks for all the fish!\n");

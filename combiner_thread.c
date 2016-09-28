@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <math.h>
 
@@ -124,6 +125,21 @@ bool ct_process(struct combiner_thread *ct)
     float magsq_new= ct_weight(magsq_old, magsq_cur);
     ct->mag_sq[i]= magsq_new;
   }
+
+  return (true);
+}
+
+bool ct_output(struct combiner_thread *ct)
+{
+  if (!ct || !ct->phases || !ct->variances || !!ct->mag_sq) {
+    fprintf(stderr, "ct_output: No ct structure\n");
+    return (false);
+  }
+
+  // TODO: EINTR handling
+  write(STDOUT_FILENO, ct->phases,    sizeof(*ct->phases) * ct->len_fft);
+  write(STDOUT_FILENO, ct->variances, sizeof(*ct->variances) * ct->len_fft);
+  write(STDOUT_FILENO, ct->mag_sq,    sizeof(*ct->mag_sq) * ct->len_fft);
 
   return (true);
 }

@@ -27,7 +27,7 @@
 
 #include "combiner_thread.h"
 
-#include "fft_thread.h"
+#include "polar_thread.h"
 
 inline float ct_weight(float old, float cur)
 {
@@ -91,7 +91,6 @@ bool ct_process(struct combiner_thread *ct)
 {
   if (!ct) {
     fprintf(stderr, "ct_process: No ct structure\n");
-
     return (false);
   }
 

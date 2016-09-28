@@ -1,11 +1,22 @@
 CFLAGS= -std=gnu11
-#CFLAGS+= -g
 CFLAGS+= -O3 -flto -march=native
-CFLAGS+= -Wall -Wextra -Wpedantic -Wstrict-overflow -Werror -Wshadow -fno-strict-aliasing
+CFLAGS+= -Wall -Wextra -Wpedantic -Wstrict-overflow -Wshadow -fno-strict-aliasing
 CFLAGS+= -pthread
 CFLAGS+= -lfftw3f -lv4l2
 
-all: main
+ifeq ($(DEBUG), true)
+CFLAGS+= -Werror -g
+endif
 
-main: main.o sdr.o fft_thread.o
-	gcc -o main main.o sdr.o fft_thread.o $(CFLAGS)
+PROGNAME= cheapodoa
+SOURCES= main.c sdr.c fft_thread.c
+OBJECTS= $(patsubst %.c, %.o, $(SOURCES))
+
+all: $(PROGNAME)
+
+$(PROGNAME): $(OBJECTS)
+	gcc -o $(PROGNAME) $(OBJECTS) $(CFLAGS)
+
+.PHONY: clean
+clean:
+	rm -f $(OBJECTS) main

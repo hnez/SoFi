@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "polar_thread.h"
+
 #define CT_WEIGHT_OLD (511)
 #define CT_WEIGHT_CUR (1)
 #define CT_WEIGHT_BOTH (CT_WEIGHT_OLD + CT_WEIGHT_CUR)

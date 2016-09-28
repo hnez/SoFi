@@ -83,6 +83,8 @@ bool ct_destroy(struct combiner_thread *ct)
   free(ct->mag_sq);
 
   ct->len_fft= 0;
+
+  return(true);
 }
 
 bool ct_process(struct combiner_thread *ct)
@@ -101,11 +103,11 @@ bool ct_process(struct combiner_thread *ct)
 
     /* Averaging angles is hard.
      * I hope this works */
-    if (dhpi_old < -M_PI_2 && dphi_cur > M_PI_2) {
-    dhpi_cur-= 2*M_PI;
+    if (dphi_old < -M_PI_2 && dphi_cur > M_PI_2) {
+      dphi_cur-= 2*M_PI;
     }
     else if (dphi_old > M_PI_2 && dphi_cur < -M_PI_2) {
-      dhpi_cur+= 2*M_PI;
+      dphi_cur+= 2*M_PI;
     }
 
     float dphi_new= remainderf(ct_weight(dphi_old, dphi_cur), 2*M_PI);

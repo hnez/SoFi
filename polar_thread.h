@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "fft_thread.h"
+
 struct polar_thread {
   struct fft_thread *fft;
 

@@ -130,7 +130,7 @@ bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
 
       if (ms > maximum.mag_sq) {
         maximum.mag_sq= ms;
-        maximum.shift= -i;
+        maximum.shift= -(int64_t)i;
       }
     }
 
@@ -149,7 +149,7 @@ bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
 
   // Output the calibrations that will be performed
   fprintf(stderr, "receiver offset calibration: ");
-  for(size_t num=0; num<num_ffts; num++) fprintf(stderr, "%ld ", shifts[num]);
+  for(size_t num=0; num<num_ffts; num++) fprintf(stderr, "%li ", shifts[num]);
   fprintf(stderr, "\n");
 
   // Perform calibrations

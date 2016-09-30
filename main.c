@@ -17,6 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#define NUM_SDRS 2
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -29,64 +31,90 @@
 
 #include "sdr.h"
 #include "fft_thread.h"
+#include "synchronize.h"
+
+bool dev_setup(struct sdr *sdr, struct fft_thread *ft, char*path)
+{
+  if(!sdr_open(sdr, path)) {
+    return (false);
+  }
+
+  if (!sdr_connect_buffers(sdr, 8)) {
+    return (false);
+  }
+
+  if(!sdr_set_sample_rate(sdr, 2000000)) {
+    return(false);
+  }
+
+  if(!sdr_set_center_freq(sdr, 89000000)) {
+    return(false);
+  }
+
+  if(!ft_setup(ft, sdr, 1<<14)) {
+    return(false);
+  }
+
+  return(true);
+}
+
+bool dev_destroy(struct sdr *sdr, struct fft_thread *ft)
+{
+  if (!sdr_stop(sdr)) {
+    return(false);
+  }
+
+  if (!sdr_destroy(sdr)) {
+    return(false);
+  }
+
+  if(!ft_destroy(ft)) {
+    return(false);
+  }
+
+  return(true);
+}
 
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
-  struct sdr sdr= {0};
-  struct fft_thread ft= {0};
+  struct sdr sdrs[NUM_SDRS]= {0};
+  struct fft_thread fts[NUM_SDRS]= {0};
 
-  if(!sdr_open(&sdr, "/dev/swradio0")) {
-    return (-1);
+  for (int i=0; i<NUM_SDRS; i++) {
+    char path[128];
+
+    sprintf(path, "/dev/swradio%d", i);
+
+    fprintf(stderr, "Open dev %s\n", path);
+
+    if(!dev_setup(&sdrs[i], &fts[i], path)) {
+      return (-1);
+    }
   }
 
-  if (!sdr_connect_buffers(&sdr, 8)) {
-    return (-1);
+  for (int i=0; i<NUM_SDRS; i++) {
+    fprintf(stderr, "Start dev %d\n", i);
+
+    if(!sdr_start(&sdrs[i])) {
+      return (-1);
+    }
   }
 
-  if(!sdr_set_sample_rate(&sdr, 2000000)) {
-    return(-1);
-  }
+  fprintf(stderr, "Syncronize\n");
 
-  if(!sdr_set_center_freq(&sdr, 89000000)) {
-    return(-1);
-  }
-
-  if(!sdr_start(&sdr)) {
-    return (-1);
-  }
-
-  if(!ft_setup(&ft, &sdr, 1<<14)) {
-    return(-1);
-  }
-
-  fprintf(stderr, "sizeof(*ft.buf_in)= %ld\n", sizeof(*ft.buf_in));
-  fprintf(stderr, "sizeof(*ft.buf_in[0])= %ld\n", sizeof(*ft.buf_in[0]));
-
-  for (int i=0; i<2048; i++) {
-    if(!ft_get_input(&ft)) {
+  for (int i=0; i<20; i++) {
+    if (!sync_fft_threads(fts, NUM_SDRS)) {
       return(-1);
     }
+  }
 
-    if(!ft_run_fft(&ft)) {
-      return(-1);
+  for (int i=0; i<NUM_SDRS; i++) {
+    fprintf(stderr, "Destroy dev %d\n", i);
+
+    if(!dev_destroy(&sdrs[i], &fts[i])) {
+      return (-1);
     }
-
-    write(STDOUT_FILENO, ft.buf_in, sizeof(*ft.buf_in) * ft.len_fft);
   }
-
-  if (!sdr_stop(&sdr)) {
-    return(false);
-  }
-
-  if (!sdr_destroy(&sdr)) {
-    return(false);
-  }
-
-  if(!ft_destroy(&ft)) {
-    return(-1);
-  }
-
-  fprintf(stderr, "So long and thanks for all the fish!\n");
 
   return(0);
 }

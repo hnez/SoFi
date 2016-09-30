@@ -32,10 +32,10 @@
 
 #include "sdr.h"
 
-bool ft_setup(struct fft_thread *ft, uint32_t len_fft)
+bool ft_setup(struct fft_thread *ft, struct sdr *sdr, uint32_t len_fft)
 {
-  if (!ft) {
-    fprintf(stderr, "ft_setup: No ft structure\n");
+  if (!ft || !sdr) {
+    fprintf(stderr, "ft_setup: No ft or sdr structure\n");
 
     return (false);
   }
@@ -59,14 +59,15 @@ bool ft_setup(struct fft_thread *ft, uint32_t len_fft)
   }
 
   ft->len_fft= len_fft;
+  ft->dev= sdr;
 
   return(true);
 }
 
 bool ft_get_input(struct fft_thread *ft)
 {
-  if (!ft) {
-    fprintf(stderr, "ft_get_input: No ft structure\n");
+  if (!ft || !ft->dev) {
+    fprintf(stderr, "ft_get_input: No ft or sdr  structure\n");
 
     return (false);
   }
@@ -80,7 +81,7 @@ bool ft_get_input(struct fft_thread *ft)
     } *samples;
 
     size_t bytes_rem= sizeof(*samples) * (ft->len_fft - pos);
-    ssize_t bytes_rd= sdr_peek(&ft->dev, bytes_rem, (void *)&samples);
+    ssize_t bytes_rd= sdr_peek(ft->dev, bytes_rem, (void *)&samples);
 
     if (bytes_rd < 0) {
       return(false);
@@ -93,7 +94,7 @@ bool ft_get_input(struct fft_thread *ft)
       ft->buf_in[pos][1]= (float)samples[i].i - 127;
     }
 
-    if (!sdr_done(&ft->dev)) {
+    if (!sdr_done(ft->dev)) {
       return(false);
     }
   }
@@ -120,14 +121,6 @@ bool ft_destroy(struct fft_thread *ft)
     fprintf(stderr, "ft_destroy: No ft structure\n");
 
     return (false);
-  }
-
-  if (!sdr_stop(&ft->dev)) {
-    return(false);
-  }
-
-  if (!sdr_close(&ft->dev)) {
-    return(false);
   }
 
   fftwf_destroy_plan(ft->plan);

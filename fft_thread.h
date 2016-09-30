@@ -28,7 +28,7 @@
 #include "sdr.h"
 
 struct fft_thread {
-  struct sdr dev;
+  struct sdr *dev;
 
   uint32_t len_fft;
 
@@ -38,7 +38,7 @@ struct fft_thread {
   fftwf_plan plan;
 };
 
-bool ft_setup(struct fft_thread *ft, uint32_t len_fft);
+bool ft_setup(struct fft_thread *ft, struct sdr *sdr, uint32_t len_fft);
 bool ft_get_input(struct fft_thread *ft);
 bool ft_run_fft(struct fft_thread *ft);
 bool ft_destroy(struct fft_thread *ft);

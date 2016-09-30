@@ -34,22 +34,22 @@
 
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
+  struct sdr sdr= {0};
   struct fft_thread ft= {0};
-  ft.dev.dev_path= "/dev/swradio0";
 
-  if(!sdr_open(&ft.dev)) {
+  if(!sdr_open(&sdr, "/dev/swradio0")) {
     return (-1);
   }
 
-  if (!sdr_connect_buffers(&ft.dev, 8)) {
+  if (!sdr_connect_buffers(&sdr, 8)) {
     return (-1);
   }
 
-  if(!sdr_start(&ft.dev)) {
+  if(!sdr_start(&sdr)) {
     return (-1);
   }
 
-  if(!ft_setup(&ft, 1<<14)) {
+  if(!ft_setup(&ft, &sdr, 1<<14)) {
     return(-1);
   }
 
@@ -69,6 +69,14 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     }
   }
 
+  if (!sdr_stop(&sdr)) {
+    return(false);
+  }
+
+  if (!sdr_close(&sdr)) {
+    return(false);
+  }
+  
   if(!ft_destroy(&ft)) {
     return(-1);
   }

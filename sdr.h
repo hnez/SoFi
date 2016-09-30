@@ -45,7 +45,7 @@ struct sdr {
   } buffer_reader;
 };
 
-bool sdr_open(struct sdr *sdr);
+bool sdr_open(struct sdr *sdr, char *path);
 bool sdr_connect_buffers(struct sdr *sdr, uint32_t bufs_count);
 bool sdr_start(struct sdr *sdr);
 bool sdr_stop(struct sdr *sdr);

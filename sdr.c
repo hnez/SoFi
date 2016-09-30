@@ -44,12 +44,18 @@ static bool ioctl_irqsafe(int fh, unsigned long int request, void *arg)
   return(ret >= 0);
 }
 
-bool sdr_open(struct sdr *sdr)
+bool sdr_open(struct sdr *sdr, char *path)
 {
   struct v4l2_format fmt;
 
-  if (!sdr || !sdr->dev_path) {
-    fprintf(stderr, "sdr_open: No sdr structure or device\n");
+  if (!sdr || !path) {
+    fprintf(stderr, "sdr_open: No sdr structure or device path\n");
+    return (false);
+  }
+
+  sdr->dev_path= strdup(path);
+  if (!sdr->dev_path) {
+    fprintf(stderr, "sdr_open: string allocation failed\n");
     return (false);
   }
 
@@ -210,6 +216,7 @@ bool sdr_close(struct sdr *sdr)
   }
 
   v4l2_close(sdr->fd);
+  free(sdr->dev_path);
 
   return(false);
 }

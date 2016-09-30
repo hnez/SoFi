@@ -261,7 +261,7 @@ bool sdr_destroy(struct sdr *sdr)
   v4l2_close(sdr->fd);
   free(sdr->dev_path);
 
-  return(false);
+  return(true);
 }
 
 /**

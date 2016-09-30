@@ -374,3 +374,20 @@ bool sdr_done(struct sdr *sdr)
 
   return(true);
 }
+
+bool sdr_seek(struct sdr *sdr, size_t len)
+{
+  while(len) {
+    ssize_t rd= sdr_peek(sdr, len, NULL);
+
+    if (rd<0) {
+      return (false);
+    }
+
+    sdr_done(sdr);
+
+    len-= rd;
+  }
+
+  return (true);
+}

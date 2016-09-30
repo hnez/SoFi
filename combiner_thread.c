@@ -129,17 +129,31 @@ bool ct_process(struct combiner_thread *ct)
   return (true);
 }
 
+static bool write_forreal(int fd, void *dat, size_t len)
+{
+  for(size_t written=0; written<len;) {
+    ssize_t ret= write(fd, dat, len-written);
+
+    if(ret<0) return(false);
+
+    dat=&((uint8_t *)dat)[ret];
+    written+=ret;
+  }
+
+  return(true);
+}
+
 bool ct_output(struct combiner_thread *ct)
 {
-  if (!ct || !ct->phases || !ct->variances || !!ct->mag_sq) {
+  if (!ct || !ct->phases || !ct->variances || !ct->mag_sq) {
     fprintf(stderr, "ct_output: No ct structure\n");
     return (false);
   }
 
   // TODO: EINTR handling
-  write(STDOUT_FILENO, ct->phases,    sizeof(*ct->phases) * ct->len_fft);
-  write(STDOUT_FILENO, ct->variances, sizeof(*ct->variances) * ct->len_fft);
-  write(STDOUT_FILENO, ct->mag_sq,    sizeof(*ct->mag_sq) * ct->len_fft);
+  write_forreal(STDOUT_FILENO, ct->phases,    sizeof(*ct->phases) * ct->len_fft);
+  write_forreal(STDOUT_FILENO, ct->variances, sizeof(*ct->variances) * ct->len_fft);
+  write_forreal(STDOUT_FILENO, ct->mag_sq,    sizeof(*ct->mag_sq) * ct->len_fft);
 
   return (true);
 }

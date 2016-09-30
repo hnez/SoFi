@@ -54,3 +54,4 @@ bool sdr_stop(struct sdr *sdr);
 bool sdr_destroy(struct sdr *sdr);
 bool sdr_done(struct sdr *sdr);
 ssize_t sdr_peek(struct sdr *sdr, size_t len, void **samples);
+bool sdr_seek(struct sdr *sdr, size_t len);

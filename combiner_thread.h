@@ -21,7 +21,7 @@
 
 #include "polar_thread.h"
 
-#define CT_WEIGHT_OLD (511)
+#define CT_WEIGHT_OLD (63)
 #define CT_WEIGHT_CUR (1)
 #define CT_WEIGHT_BOTH (CT_WEIGHT_OLD + CT_WEIGHT_CUR)
 
@@ -35,3 +35,8 @@ struct combiner_thread {
   float *variances;
   float *mag_sq;
 };
+
+bool ct_setup(struct combiner_thread *ct, struct polar_thread *a, struct polar_thread *b);
+bool ct_destroy(struct combiner_thread *ct);
+bool ct_process(struct combiner_thread *ct);
+bool ct_output(struct combiner_thread *ct);

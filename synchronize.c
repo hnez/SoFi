@@ -26,6 +26,8 @@
 
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "sdr.h"
 #include "fft_thread.h"
@@ -67,6 +69,13 @@ bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
     if (ffts[num].len_fft != len_fft) {
       fprintf(stderr, "sync_fft_threads: fft lengths do not match\n");
       return(false);
+    }
+  }
+
+  // Give the receivers some time for warm up
+  for(int i=0; i<32; i++) {
+    for (size_t num=0; num<num_ffts; num++) {
+      sdr_seek(ffts[num].dev, 2 * len_fft);
     }
   }
 
@@ -130,7 +139,7 @@ bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
 
       if (ms > maximum.mag_sq) {
         maximum.mag_sq= ms;
-        maximum.shift= -(int64_t)i;
+        maximum.shift= i; // TODO: make one negative again
       }
     }
 
@@ -154,8 +163,7 @@ bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
 
   // Perform calibrations
   for(size_t num=0; num<num_ffts; num++) {
-    sdr_peek(ffts[num].dev, shifts[num], NULL);
-    sdr_done(ffts[num].dev);
+    sdr_seek(ffts[num].dev, shifts[num] * 2);
   }
 
   return(true);

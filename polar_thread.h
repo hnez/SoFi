@@ -29,3 +29,7 @@ struct polar_thread {
   float *phases;
   float *mag_sq;
 };
+
+bool pt_setup(struct polar_thread *pt, struct fft_thread *fft);
+bool pt_destroy(struct polar_thread *pt);
+bool pt_process(struct polar_thread *pt);

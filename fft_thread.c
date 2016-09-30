@@ -90,8 +90,8 @@ bool ft_get_input(struct fft_thread *ft)
     size_t samples_rd= bytes_rd/sizeof(*samples);
 
     for (size_t i=0; i<samples_rd; i++, pos++) {
-      ft->buf_in[pos][0]= (float)samples[i].r - 127;
-      ft->buf_in[pos][1]= (float)samples[i].i - 127;
+      ft->buf_in[pos][0]= ((float)samples[i].r - 127.5)/127.5;
+      ft->buf_in[pos][1]= ((float)samples[i].i - 127.5)/127.5;
     }
 
     if (!sdr_done(ft->dev)) {

@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "sdr.h"
 #include "fft_thread.h"
@@ -45,6 +46,14 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return (-1);
   }
 
+  if(!sdr_set_sample_rate(&sdr, 2000000)) {
+    return(-1);
+  }
+
+  if(!sdr_set_center_freq(&sdr, 89000000)) {
+    return(-1);
+  }
+
   if(!sdr_start(&sdr)) {
     return (-1);
   }
@@ -53,7 +62,10 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return(-1);
   }
 
-  for (int i=0; i<200; i++) {
+  fprintf(stderr, "sizeof(*ft.buf_in)= %ld\n", sizeof(*ft.buf_in));
+  fprintf(stderr, "sizeof(*ft.buf_in[0])= %ld\n", sizeof(*ft.buf_in[0]));
+
+  for (int i=0; i<2048; i++) {
     if(!ft_get_input(&ft)) {
       return(-1);
     }
@@ -62,21 +74,17 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
       return(-1);
     }
 
-    if (i==100) {
-      for (uint32_t j=0; j<ft.len_fft; j++) {
-        printf("%f, %f\n", ft.buf_out[j][0], ft.buf_out[j][1]);
-      }
-    }
+    write(STDOUT_FILENO, ft.buf_in, sizeof(*ft.buf_in) * ft.len_fft);
   }
 
   if (!sdr_stop(&sdr)) {
     return(false);
   }
 
-  if (!sdr_close(&sdr)) {
+  if (!sdr_destroy(&sdr)) {
     return(false);
   }
-  
+
   if(!ft_destroy(&ft)) {
     return(-1);
   }

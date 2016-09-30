@@ -48,7 +48,9 @@ struct sdr {
 bool sdr_open(struct sdr *sdr, char *path);
 bool sdr_connect_buffers(struct sdr *sdr, uint32_t bufs_count);
 bool sdr_start(struct sdr *sdr);
+bool sdr_set_sample_rate(struct sdr *sdr, uint32_t samp_rate);
+bool sdr_set_center_freq(struct sdr *sdr, uint32_t freq);
 bool sdr_stop(struct sdr *sdr);
-bool sdr_close(struct sdr *sdr);
+bool sdr_destroy(struct sdr *sdr);
 bool sdr_done(struct sdr *sdr);
 ssize_t sdr_peek(struct sdr *sdr, size_t len, void **samples);

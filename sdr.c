@@ -180,6 +180,49 @@ bool sdr_start(struct sdr *sdr)
   return (true);
 }
 
+bool sdr_set_sample_rate(struct sdr *sdr, uint32_t samp_rate)
+{
+  if (!sdr || sdr->fd < 0) {
+    fprintf(stderr, "sdr_set_sample_rate: missing sdr struct or fd is closed\n");
+    return(false);
+  }
+
+  struct v4l2_frequency frequency= {0};
+  frequency.tuner = 0;
+  frequency.type = V4L2_TUNER_ADC;
+  frequency.frequency = samp_rate;
+
+  if (!ioctl_irqsafe(sdr->fd, VIDIOC_S_FREQUENCY, &frequency)) {
+    fprintf(stderr, "sdr_set_sample_rate: ioctl failed %d, %s\n",
+            errno, strerror(errno));
+
+    return(false);
+  }
+
+  return(true);
+}
+
+bool sdr_set_center_freq(struct sdr *sdr, uint32_t freq)
+{
+  if (!sdr || sdr->fd < 0) {
+    fprintf(stderr, "sdr_set_center_freq: missing sdr struct or fd is closed\n");
+    return(false);
+  }
+
+  struct v4l2_frequency frequency= {0};
+  frequency.tuner = 1;
+  frequency.type = V4L2_TUNER_RF;
+  frequency.frequency = freq;
+
+  if (!ioctl_irqsafe(sdr->fd, VIDIOC_S_FREQUENCY, &frequency)) {
+    fprintf(stderr, "sdr_set_center_freq: ioctl failed %d, %s\n",
+            errno, strerror(errno));
+
+    return(false);
+  }
+
+  return(true);
+}
 
 bool sdr_stop(struct sdr *sdr)
 {
@@ -200,7 +243,7 @@ bool sdr_stop(struct sdr *sdr)
   return (true);
 }
 
-bool sdr_close(struct sdr *sdr)
+bool sdr_destroy(struct sdr *sdr)
 {
   if (!sdr || sdr->fd < 0 || (sdr->bufs_count && !sdr->buffers)) {
     fprintf(stderr, "sdr_close: missing sdr struct or fd is closed\n");

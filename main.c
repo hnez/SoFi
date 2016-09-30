@@ -25,9 +25,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "sdr.h"

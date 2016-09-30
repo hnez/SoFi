@@ -319,7 +319,7 @@ ssize_t sdr_peek(struct sdr *sdr, size_t len, void **samples)
   size_t len_rem= sdr->buffers[bufnum].len - rdpos;
   size_t len_trunc= len_rem < len ? len_rem : len;
 
-  *samples= (uint8_t *)sdr->buffers[bufnum].start + rdpos;
+  if(samples) *samples= (uint8_t *)sdr->buffers[bufnum].start + rdpos;
   sdr->buffer_reader.peekpos+= len_trunc;
 
   return(len_trunc);

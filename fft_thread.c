@@ -54,7 +54,6 @@ bool ft_setup(struct fft_thread *ft, struct sdr *sdr, uint32_t len_fft)
 
   if (!ft->plan) {
     fprintf(stderr, "ft_setup: fftwf_plan failed\n");
-
     return(false);
   }
 

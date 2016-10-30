@@ -23,22 +23,44 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include <pthread.h>
+
 #include <fftw3.h>
 
 #include "sdr.h"
 
-struct fft_thread {
-  struct sdr *dev;
+struct fft_buffer {
+  uint64_t consumers;
+  uint64_t frame_no;
 
-  uint32_t len_fft;
-
-  fftwf_complex *buf_in;
-  fftwf_complex *buf_out;
+  fftwf_complex *in;
+  fftwf_complex *out;
 
   fftwf_plan plan;
 };
 
-bool ft_setup(struct fft_thread *ft, struct sdr *sdr, uint32_t len_fft);
-bool ft_get_input(struct fft_thread *ft);
-bool ft_run_fft(struct fft_thread *ft);
+struct fft_thread {
+  struct sdr *dev;
+
+  size_t len_fft;
+  uint64_t consumers;
+  bool running;
+  pthread_t thread;
+
+  struct fft_buffer *buffers;
+
+  size_t buffers_count;
+  pthread_mutex_t buffers_meta_lock;
+  pthread_cond_t buffers_meta_notify;
+};
+
+bool ft_setup(struct fft_thread *ft, struct sdr *dev, size_t len_fft,
+              size_t buffers_count, uint64_t consumers_count);
+
+bool ft_start(struct fft_thread *ft);
+bool ft_stop(struct fft_thread *ft);
+
+struct fft_buffer *ft_get_frame(struct fft_thread *ft, uint64_t frame);
+bool ft_release_frame(struct fft_thread *ft, struct fft_buffer *buf);
+
 bool ft_destroy(struct fft_thread *ft);

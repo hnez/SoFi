@@ -31,7 +31,7 @@
 
 #include "sdr.h"
 #include "fft_thread.h"
-
+/*
 static void multiply_conjugate(fftwf_complex *dst, fftwf_complex *a, fftwf_complex *b, size_t len)
 {
   for (; len; len--, dst++, a++, b++) {
@@ -39,7 +39,7 @@ static void multiply_conjugate(fftwf_complex *dst, fftwf_complex *a, fftwf_compl
     *dst[1]= (*a[1])*(*b[0]) - (*a[0])*(*b[1]);
   }
 }
-
+*/
 inline float mag_squared(fftwf_complex z)
 {
   return(z[0]*z[0] + z[1]*z[1]);
@@ -97,24 +97,16 @@ bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
 
   // Get samples for all receivers and calculate ffts
   for (size_t num=0; num<num_ffts; num++) {
-    if(!ft_get_input(&ffts[num])) {
-      fprintf(stderr, "sync_fft_threads: getting samples for thread %ld failed\n", num);
 
-      return(false);
-    }
+    fprintf(stderr, "sync_fft_threads: TODO\n");
 
-    if(!ft_run_fft(&ffts[num])) {
-      fprintf(stderr, "sync_fft_threads: calculating fft for thread %ld failed\n", num);
-
-      return(false);
-    }
   }
 
   int64_t shifts[num_ffts];
   shifts[0]= 0;
 
   for (size_t num=1; num<num_ffts; num++) {
-    multiply_conjugate(conjugate, ffts[0].buf_out, ffts[num].buf_out, len_fft);
+    //multiply_conjugate(conjugate, ffts[0].buf_out, ffts[num].buf_out, len_fft);
 
     fftwf_execute(plan);
 

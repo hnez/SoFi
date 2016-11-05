@@ -18,6 +18,7 @@
  */
 
 #define NUM_SDRS (4)
+#define FFT_LEN (2048)
 
 #include <pthread.h>
 #include <stdio.h>
@@ -33,11 +34,13 @@
 #include "fft_thread.h"
 #include "synchronize.h"
 #include "window.h"
+#include "combiner.h"
 
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
   struct sdr devs[NUM_SDRS]= {0};
-  // struct fft_thread ffts[NUM_SDRS]= {0};
+  struct fft_thread ffts[NUM_SDRS]= {0};
+  float *window= window_hamming(FFT_LEN);
 
   for (int i=0; i<NUM_SDRS; i++) {
     char path[128];
@@ -54,7 +57,12 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
       return (1);
     }
 
-    if(!sdr_set_center_freq(&devs[i], 883*100*1000)) {
+    if(!sdr_set_center_freq(&devs[i], 91480*1000)) {
+      return(1);
+    }
+
+    if(!ft_setup(&ffts[i], &devs[i], window,
+                 FFT_LEN, 8, 1, true)) {
       return(1);
     }
   }
@@ -81,8 +89,19 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     return(-1);
   }
 
+  fprintf(stderr, "Start calculating phases\n");
 
+  for (int i=0; i<NUM_SDRS; i++) {
+    fprintf(stderr, "Start fft %d\n", i);
 
+    if(!ft_start(&ffts[i])) {
+      return(1);
+    }
+  }
+
+  if (!cb_run(STDOUT_FILENO, ffts, NUM_SDRS)) {
+    return(1);
+  }
 
   return(0);
 }

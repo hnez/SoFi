@@ -292,7 +292,10 @@ bool ft_release_frame(struct fft_thread *ft, struct fft_buffer *buf)
 
   buf->consumers--;
 
-  pthread_cond_broadcast(&ft->buffers_meta_notify);
+  if (!buf->consumers) {
+    pthread_cond_broadcast(&ft->buffers_meta_notify);
+  }
+
   pthread_mutex_unlock(&ft->buffers_meta_lock);
 
   return(true);

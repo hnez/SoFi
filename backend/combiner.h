@@ -19,24 +19,10 @@
 
 #pragma once
 
-#include "polar_thread.h"
+#include "fft_thread.h"
 
-#define CT_WEIGHT_OLD (63)
-#define CT_WEIGHT_CUR (1)
-#define CT_WEIGHT_BOTH (CT_WEIGHT_OLD + CT_WEIGHT_CUR)
+#define CB_WEIGHT_OLD (127)
+#define CB_WEIGHT_CUR (1)
+#define CB_WEIGHT_BOTH (CB_WEIGHT_OLD + CB_WEIGHT_CUR)
 
-struct combiner_thread {
-  struct polar_thread *polar_a;
-  struct polar_thread *polar_b;
-
-  uint32_t len_fft;
-
-  float *phases;
-  float *variances;
-  float *mag_sq;
-};
-
-bool ct_setup(struct combiner_thread *ct, struct polar_thread *a, struct polar_thread *b);
-bool ct_destroy(struct combiner_thread *ct);
-bool ct_process(struct combiner_thread *ct);
-bool ct_output(struct combiner_thread *ct);
+bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts);

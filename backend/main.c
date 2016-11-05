@@ -54,12 +54,30 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
       return (1);
     }
 
-    if(!sdr_set_center_freq(&devs[i], 89*1000*1000)) {
+    if(!sdr_set_center_freq(&devs[i], 883*100*1000)) {
       return(1);
     }
   }
 
-  if(!sync_sdrs(devs, NUM_SDRS, 1<<17)) {
+  for (int i=0; i<NUM_SDRS; i++) {
+    fprintf(stderr, "Start dev %d\n", i);
+
+    if(!sdr_start(&devs[i])) {
+      return(1);
+    }
+  }
+
+  for (int i=0; i<NUM_SDRS; i++) {
+    fprintf(stderr, "Speed up dev %d\n", i);
+
+    if(!sdr_set_sample_rate(&devs[i], 2000000)) {
+      return(1);
+    }
+  }
+
+  fprintf(stderr, "Start syncing\n");
+
+  if(!sync_sdrs(devs, NUM_SDRS, 1<<18)) {
     return(-1);
   }
 

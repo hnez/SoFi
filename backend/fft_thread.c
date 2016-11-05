@@ -97,6 +97,12 @@ static struct fft_buffer *ft_get_consumed_buffer(struct fft_thread *ft)
   pthread_mutex_lock(&ft->buffers_meta_lock);
 
   for(;;) {
+    if(!ft->running) {
+      pthread_mutex_unlock(&ft->buffers_meta_lock);
+
+      return(NULL);
+    }
+
     for (size_t bidx=0; bidx<ft->buffers_count; bidx++) {
       if (ft->buffers[bidx].consumers==0) {
         pthread_mutex_unlock(&ft->buffers_meta_lock);
@@ -109,7 +115,7 @@ static struct fft_buffer *ft_get_consumed_buffer(struct fft_thread *ft)
   }
 }
 
-static struct fft_buffer *ft_get_frame_bidx_locked(struct fft_thread *ft, size_t frame)
+static struct fft_buffer *ft_get_frame_locked(struct fft_thread *ft, size_t frame)
 {
   pthread_mutex_lock(&ft->buffers_meta_lock);
 
@@ -135,12 +141,15 @@ static void *ft_main(void *dat)
 {
   struct fft_thread *ft= dat;
 
-  for (uint64_t frame= 0; ;frame++) {
-    if (!ft->running) {
-      return((void *)true);
-    }
+  fprintf(stderr, "ft_main: thread %p is up and kicking butt\n", dat);
 
+  for (uint64_t frame= 0; ;frame++) {
     struct fft_buffer *buf= ft_get_consumed_buffer(ft);
+
+    if (!buf) {
+      fprintf(stderr, "ft_main: thread %p is going to die\n", dat);
+      return(ft->running ? (void *)false : (void *)true);
+    }
 
     if (!ft_load_samples(ft, buf)) {
       return((void *)false);
@@ -250,7 +259,13 @@ bool ft_stop(struct fft_thread *ft)
     return (true);
   }
 
+  pthread_mutex_lock(&ft->buffers_meta_lock);
+
   ft->running= false;
+
+  pthread_cond_broadcast(&ft->buffers_meta_notify);
+  pthread_mutex_unlock(&ft->buffers_meta_lock);
+
   bool status= false;
 
   if (pthread_join(ft->thread, (void **)&status) != 0) {
@@ -264,7 +279,7 @@ bool ft_stop(struct fft_thread *ft)
 
 struct fft_buffer *ft_get_frame(struct fft_thread *ft, uint64_t frame)
 {
-  struct fft_buffer *buf= ft_get_frame_bidx_locked(ft, frame);
+  struct fft_buffer *buf= ft_get_frame_locked(ft, frame);
 
   pthread_mutex_unlock(&ft->buffers_meta_lock);
 

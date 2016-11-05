@@ -74,6 +74,8 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
   struct fft_thread ffts[num_devs];
 
   for (size_t i=0; i<num_devs; i++) {
+    fprintf(stderr, "sync_sdrs: setting up dev %ld\n", i);
+
     if (!ft_setup(&ffts[i], &devs[i], window, sync_len, 1, 1)) {
       fprintf(stderr, "sync_sdrs: ft_setup failed\n");
       return(false);
@@ -102,7 +104,9 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
 
   bool synced= false;
 
-  for(uint64_t frame=0; synced; frame++) {
+  for(uint64_t frame=0; !synced; frame++) {
+    fprintf(stderr, "sync_sdrs: syncing frame %ld\n", frame);
+
     struct fft_buffer *bufs[num_devs];
 
     for (size_t i=0; i<num_devs; i++) {
@@ -142,7 +146,7 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
 
         if (ms > maximum.mag_sq) {
           maximum.mag_sq= ms;
-          maximum.shift= f; // TODO: make one negative again
+          maximum.shift= -(int64_t)f;
         }
       }
 
@@ -164,13 +168,20 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
 
     // Read shifts[dev] 2-byte samples
     for(size_t dev=0; dev<num_devs; dev++) {
-      sdr_seek(&devs[dev], shifts[dev] * 2);
+      if(frame > 10) sdr_seek(&devs[dev], shifts[dev] * 2);
     }
 
     /* Note: Do not release the fft buffer before the
      * receiver realignement is made.
      * Otherwise the fft thread might be reading from the device */
     for (size_t i=0; i<num_devs; i++) {
+      if(synced) {
+        if (!ft_stop(&ffts[i])) {
+          fprintf(stderr, "sync_sdrs: stopping fft failed\n");
+          return(false);
+        }
+      }
+
       if (!ft_release_frame(&ffts[i], bufs[i])) {
         fprintf(stderr, "sync_sdrs: releasing fft failed\n");
         return(false);

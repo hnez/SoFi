@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <?grc format='1' created='3.7.10'?>
 <flow_graph>
-  <timestamp>Fri Sep 30 10:51:42 2016</timestamp>
+  <timestamp>Sat Nov  5 17:25:38 2016</timestamp>
   <block>
     <key>options</key>
     <param>
@@ -93,34 +93,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(8, 84)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>center_fq</value>
-    </param>
-    <param>
-      <key>value</key>
-      <value>864e6</value>
-    </param>
-  </block>
-  <block>
-    <key>variable</key>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(176, 156)</value>
+      <value>(224, 108)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -132,7 +105,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>1&lt;&lt;16</value>
+      <value>2048</value>
     </param>
   </block>
   <block>
@@ -159,7 +132,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>2000000</value>
+      <value>1000</value>
     </param>
   </block>
   <block>
@@ -186,7 +159,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(144, 332)</value>
+      <value>(152, 428)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -218,7 +191,7 @@
     </param>
   </block>
   <block>
-    <key>blocks_multiply_const_vxx</key>
+    <key>blocks_file_source</key>
     <param>
       <key>alias</key>
       <value></value>
@@ -228,20 +201,20 @@
       <value></value>
     </param>
     <param>
-      <key>const</key>
-      <value>[(3e8/3.1416) / (center_fq + (float(i)/fft_len-0.5)*samp_rate) for i in range(fft_len)]</value>
-    </param>
-    <param>
       <key>affinity</key>
       <value></value>
     </param>
     <param>
       <key>_enabled</key>
-      <value>True</value>
+      <value>0</value>
+    </param>
+    <param>
+      <key>file</key>
+      <value>/home/leonard/Dokumente/Uni/Praktikum/Vertiefungsprojekt/backend/phases_mags_unbound</value>
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(592, 164)</value>
+      <value>(144, 332)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -249,11 +222,7 @@
     </param>
     <param>
       <key>id</key>
-      <value>blocks_multiply_const_vxx_0</value>
-    </param>
-    <param>
-      <key>type</key>
-      <value>float</value>
+      <value>blocks_file_source_0_0_0</value>
     </param>
     <param>
       <key>maxoutbuf</key>
@@ -262,6 +231,14 @@
     <param>
       <key>minoutbuf</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>float</value>
+    </param>
+    <param>
+      <key>repeat</key>
+      <value>True</value>
     </param>
     <param>
       <key>vlen</key>
@@ -288,7 +265,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(640, 516)</value>
+      <value>(688, 700)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -339,7 +316,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(384, 320)</value>
+      <value>(840, 104)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -348,6 +325,159 @@
     <param>
       <key>id</key>
       <value>blocks_stream_to_streams_0</value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>float</value>
+    </param>
+    <param>
+      <key>maxoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>minoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>num_streams</key>
+      <value>6</value>
+    </param>
+    <param>
+      <key>vlen</key>
+      <value>fft_len</value>
+    </param>
+  </block>
+  <block>
+    <key>blocks_stream_to_streams</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>affinity</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(872, 632)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>blocks_stream_to_streams_0_0</value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>float</value>
+    </param>
+    <param>
+      <key>maxoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>minoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>num_streams</key>
+      <value>6</value>
+    </param>
+    <param>
+      <key>vlen</key>
+      <value>fft_len</value>
+    </param>
+  </block>
+  <block>
+    <key>blocks_stream_to_streams</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>affinity</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>1</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(840, 352)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>blocks_stream_to_streams_0_1</value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>float</value>
+    </param>
+    <param>
+      <key>maxoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>minoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>num_streams</key>
+      <value>6</value>
+    </param>
+    <param>
+      <key>vlen</key>
+      <value>fft_len</value>
+    </param>
+  </block>
+  <block>
+    <key>blocks_stream_to_streams</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>affinity</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(448, 336)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>blocks_stream_to_streams_1</value>
     </param>
     <param>
       <key>type</key>
@@ -398,7 +528,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(832, 468)</value>
+      <value>(1056, 104)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -586,11 +716,11 @@
     </param>
     <param>
       <key>name</key>
-      <value>Magnitudes</value>
+      <value>"Phase"</value>
     </param>
     <param>
       <key>nconnections</key>
-      <value>1</value>
+      <value>6</value>
     </param>
     <param>
       <key>ref_level</key>
@@ -626,11 +756,11 @@
     </param>
     <param>
       <key>ymax</key>
-      <value>15</value>
+      <value>6.5</value>
     </param>
     <param>
       <key>ymin</key>
-      <value>0</value>
+      <value>-6.5</value>
     </param>
     <param>
       <key>y_axis_label</key>
@@ -645,7 +775,7 @@
     <key>qtgui_vector_sink_f</key>
     <param>
       <key>autoscale</key>
-      <value>False</value>
+      <value>True</value>
     </param>
     <param>
       <key>average</key>
@@ -669,7 +799,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(832, 292)</value>
+      <value>(1088, 632)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -857,11 +987,11 @@
     </param>
     <param>
       <key>name</key>
-      <value>Variances</value>
+      <value>"Magnitude"</value>
     </param>
     <param>
       <key>nconnections</key>
-      <value>1</value>
+      <value>6</value>
     </param>
     <param>
       <key>ref_level</key>
@@ -897,11 +1027,11 @@
     </param>
     <param>
       <key>ymax</key>
-      <value>10</value>
+      <value>6.5</value>
     </param>
     <param>
       <key>ymin</key>
-      <value>0</value>
+      <value>-6.5</value>
     </param>
     <param>
       <key>y_axis_label</key>
@@ -936,11 +1066,11 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>True</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(832, 116)</value>
+      <value>(1056, 352)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -956,7 +1086,7 @@
     </param>
     <param>
       <key>id</key>
-      <value>qtgui_vector_sink_f_0_0_0</value>
+      <value>qtgui_vector_sink_f_0_1</value>
     </param>
     <param>
       <key>alpha1</key>
@@ -1128,11 +1258,11 @@
     </param>
     <param>
       <key>name</key>
-      <value>Distances</value>
+      <value>"Variance"</value>
     </param>
     <param>
       <key>nconnections</key>
-      <value>1</value>
+      <value>6</value>
     </param>
     <param>
       <key>ref_level</key>
@@ -1168,11 +1298,11 @@
     </param>
     <param>
       <key>ymax</key>
-      <value>1</value>
+      <value>36</value>
     </param>
     <param>
       <key>ymin</key>
-      <value>-1</value>
+      <value>0</value>
     </param>
     <param>
       <key>y_axis_label</key>
@@ -1185,36 +1315,144 @@
   </block>
   <connection>
     <source_block_id>blocks_file_descriptor_source_0</source_block_id>
-    <sink_block_id>blocks_stream_to_streams_0</sink_block_id>
+    <sink_block_id>blocks_stream_to_streams_1</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
-    <source_block_id>blocks_multiply_const_vxx_0</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0_0</sink_block_id>
+    <source_block_id>blocks_file_source_0_0_0</source_block_id>
+    <sink_block_id>blocks_stream_to_streams_1</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_nlog10_ff_0</source_block_id>
+    <sink_block_id>blocks_stream_to_streams_0_0</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
     <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_multiply_const_vxx_0</sink_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
+    <source_key>1</source_key>
+    <sink_key>1</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
+    <source_key>2</source_key>
+    <sink_key>2</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
+    <source_key>3</source_key>
+    <sink_key>3</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
+    <source_key>4</source_key>
+    <sink_key>4</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
+    <source_key>5</source_key>
+    <sink_key>5</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
-    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <source_block_id>blocks_stream_to_streams_0_0</source_block_id>
     <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
+    <source_key>1</source_key>
+    <sink_key>1</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
+    <source_key>2</source_key>
+    <sink_key>2</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
+    <source_key>3</source_key>
+    <sink_key>3</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
+    <source_key>4</source_key>
+    <sink_key>4</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
+    <source_key>5</source_key>
+    <sink_key>5</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_1</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_1</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_1</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_1</sink_block_id>
+    <source_key>1</source_key>
+    <sink_key>1</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_1</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_1</sink_block_id>
+    <source_key>2</source_key>
+    <sink_key>2</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_1</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_1</sink_block_id>
+    <source_key>3</source_key>
+    <sink_key>3</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_1</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_1</sink_block_id>
+    <source_key>4</source_key>
+    <sink_key>4</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0_1</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_1</sink_block_id>
+    <source_key>5</source_key>
+    <sink_key>5</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_1</source_block_id>
+    <sink_block_id>blocks_stream_to_streams_0</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_1</source_block_id>
+    <sink_block_id>blocks_stream_to_streams_0_1</sink_block_id>
     <source_key>1</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
-    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <source_block_id>blocks_stream_to_streams_1</source_block_id>
     <sink_block_id>blocks_nlog10_ff_0</sink_block_id>
     <source_key>2</source_key>
     <sink_key>0</sink_key>

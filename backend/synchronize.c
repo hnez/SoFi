@@ -31,7 +31,9 @@
 
 #include "sdr.h"
 #include "fft_thread.h"
-/*
+#include "window.h"
+
+
 static void multiply_conjugate(fftwf_complex *dst, fftwf_complex *a, fftwf_complex *b, size_t len)
 {
   for (; len; len--, dst++, a++, b++) {
@@ -39,7 +41,7 @@ static void multiply_conjugate(fftwf_complex *dst, fftwf_complex *a, fftwf_compl
     *dst[1]= (*a[1])*(*b[0]) - (*a[0])*(*b[1]);
   }
 }
-*/
+
 inline float mag_squared(fftwf_complex z)
 {
   return(z[0]*z[0] + z[1]*z[1]);
@@ -56,107 +58,138 @@ inline int64_t arr_min(int64_t *vals, size_t len)
   return(min);
 }
 
-bool sync_fft_threads(struct fft_thread *ffts, size_t num_ffts)
+bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
 {
-  if (!ffts || !num_ffts) {
-    fprintf(stderr, "sync_fft_threads: missing fft structs\n");
+  if (!devs || !num_devs) {
+    fprintf(stderr, "sync_sdrs: no devices\n");
     return(false);
   }
 
-  uint32_t len_fft= ffts[0].len_fft;
+  float *window= window_hamming(sync_len);
+  if(!window) {
+    fprintf(stderr, "sync_sdrs: creating window function failed\n");
+    return(false);
+  }
 
-  for (size_t num=1; num<num_ffts; num++) {
-    if (ffts[num].len_fft != len_fft) {
-      fprintf(stderr, "sync_fft_threads: fft lengths do not match\n");
+  struct fft_thread ffts[num_devs];
+
+  for (size_t i=0; i<num_devs; i++) {
+    if (!ft_setup(&ffts[i], &devs[i], window, sync_len, 1, 1)) {
+      fprintf(stderr, "sync_sdrs: ft_setup failed\n");
+      return(false);
+    }
+
+    if (!ft_start(&ffts[i])) {
+      fprintf(stderr, "sync_sdrs: ft_start failed\n");
       return(false);
     }
   }
 
-  // Give the receivers some time for warm up
-  for(int i=0; i<32; i++) {
-    for (size_t num=0; num<num_ffts; num++) {
-      sdr_seek(ffts[num].dev, 2 * len_fft);
-    }
-  }
-
-  fftwf_complex *conjugate= fftwf_alloc_complex(len_fft);
-  fftwf_complex *correlation= fftwf_alloc_complex(len_fft);
+  fftwf_complex *conjugate= fftwf_alloc_complex(sync_len);
+  fftwf_complex *correlation= fftwf_alloc_complex(sync_len);
   if(!conjugate || !correlation) {
-    fprintf(stderr, "sync_fft_threads: allocating correlation buffers faileded\n");
+    fprintf(stderr, "sync_sdrs: allocating correlation buffers faileded\n");
 
     return(false);
   }
 
-  fftwf_plan plan= fftwf_plan_dft_1d(len_fft, conjugate, correlation,
+  fftwf_plan plan= fftwf_plan_dft_1d(sync_len, conjugate, correlation,
                                      FFTW_BACKWARD, FFTW_ESTIMATE);
-
   if (!plan) {
-    fprintf(stderr, "sync_fft_threads: fftwf_plan failed\n");
+    fprintf(stderr, "sync_sdrs: fftwf_plan failed\n");
     return(false);
   }
 
-  // Get samples for all receivers and calculate ffts
-  for (size_t num=0; num<num_ffts; num++) {
+  bool synced= false;
 
-    fprintf(stderr, "sync_fft_threads: TODO\n");
+  for(uint64_t frame=0; synced; frame++) {
+    struct fft_buffer *bufs[num_devs];
 
-  }
-
-  int64_t shifts[num_ffts];
-  shifts[0]= 0;
-
-  for (size_t num=1; num<num_ffts; num++) {
-    //multiply_conjugate(conjugate, ffts[0].buf_out, ffts[num].buf_out, len_fft);
-
-    fftwf_execute(plan);
-
-    struct {
-      float mag_sq;
-      int64_t shift;
-    } maximum= { .mag_sq=FLT_MIN, .shift=0};
-
-    // Check if maximum correlation is in left half of fft (positive shift)
-    for (uint32_t i=0; i<len_fft/2; i++) {
-      float ms= mag_squared(correlation[i]);
-
-      if (ms > maximum.mag_sq) {
-        maximum.mag_sq= ms;
-        maximum.shift= i;
+    for (size_t i=0; i<num_devs; i++) {
+      bufs[i]= ft_get_frame(&ffts[i], frame);
+      if(!bufs[i]) {
+        fprintf(stderr, "sync_sdrs: retrieving fft failed\n");
+        return(false);
       }
     }
 
-    // Or right half of fft (negative shift)
-    for (uint32_t i=0; i<len_fft/2; i++) {
-      float ms= mag_squared(correlation[(len_fft-1) - i]);
+    int64_t shifts[num_devs];
+    shifts[0]= 0;
 
-      if (ms > maximum.mag_sq) {
-        maximum.mag_sq= ms;
-        maximum.shift= i; // TODO: make one negative again
+    for (size_t sdev=1; sdev<num_devs; sdev++) {
+      multiply_conjugate(conjugate, bufs[0]->out, bufs[sdev]->out, sync_len);
+
+      fftwf_execute(plan);
+
+      struct {
+        float mag_sq;
+        int64_t shift;
+      } maximum= { .mag_sq=FLT_MIN, .shift=0};
+
+      // Check if maximum correlation is in left half of fft (positive shift)
+      for (uint32_t i=0; i<sync_len/2; i++) {
+        float ms= mag_squared(correlation[i])/window[i];
+
+        if (ms > maximum.mag_sq) {
+          maximum.mag_sq= ms;
+          maximum.shift= i;
+        }
       }
+
+      // Or right half of fft (negative shift)
+      for (uint32_t f=0, r=sync_len-1; f<sync_len/2; f++, r--) {
+        float ms= mag_squared(correlation[r])/window[r];
+
+        if (ms > maximum.mag_sq) {
+          maximum.mag_sq= ms;
+          maximum.shift= f; // TODO: make one negative again
+        }
+      }
+
+      shifts[sdev]= maximum.shift;
     }
 
-    shifts[num]= maximum.shift;
+    synced= true;
+    int64_t min_shift= arr_min(shifts, num_devs);
+    for(size_t dev=0; dev<num_devs; dev++) {
+      shifts[dev]-= min_shift;
+
+      if (shifts[dev]) synced= false;
+    }
+
+    // Output the calibrations that will be performed
+    fprintf(stderr, "sync_sdrs: receiver offset calibration: ");
+    for(size_t dev=0; dev<num_devs; dev++) fprintf(stderr, "%li ", shifts[dev]);
+    fprintf(stderr, "\n");
+
+    // Read shifts[dev] 2-byte samples
+    for(size_t dev=0; dev<num_devs; dev++) {
+      sdr_seek(&devs[dev], shifts[dev] * 2);
+    }
+
+    /* Note: Do not release the fft buffer before the
+     * receiver realignement is made.
+     * Otherwise the fft thread might be reading from the device */
+    for (size_t i=0; i<num_devs; i++) {
+      if (!ft_release_frame(&ffts[i], bufs[i])) {
+        fprintf(stderr, "sync_sdrs: releasing fft failed\n");
+        return(false);
+      }
+    }
   }
 
   fftwf_destroy_plan(plan);
   fftwf_free(conjugate);
   fftwf_free(correlation);
 
-  // Make the smallest shift a zero shift
-  int64_t min= arr_min(shifts, num_ffts);
-  for(size_t num=0; num<num_ffts; num++) {
-    shifts[num]-= min;
+  for (size_t i=0; i<num_devs; i++) {
+    if(!ft_destroy(&ffts[i])) {
+      fprintf(stderr, "sync_sdrs: destroying fft thread failed\n");
+      return(false);
+    }
   }
 
-  // Output the calibrations that will be performed
-  fprintf(stderr, "receiver offset calibration: ");
-  for(size_t num=0; num<num_ffts; num++) fprintf(stderr, "%li ", shifts[num]);
-  fprintf(stderr, "\n");
+  free(window);
 
-  // Perform calibrations
-  for(size_t num=0; num<num_ffts; num++) {
-    sdr_seek(ffts[num].dev, shifts[num] * 2);
-  }
-
-  return(true);
+  return (true);
 }

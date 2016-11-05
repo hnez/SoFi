@@ -31,12 +31,40 @@
 
 #include "sdr.h"
 #include "fft_thread.h"
-#include "polar_thread.h"
-#include "combiner_thread.h"
 #include "synchronize.h"
+#include "window.h"
 
 int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 {
+  struct sdr devs[NUM_SDRS]= {0};
+  // struct fft_thread ffts[NUM_SDRS]= {0};
+
+  for (int i=0; i<NUM_SDRS; i++) {
+    char path[128];
+
+    sprintf(path, "/dev/swradio%d", i);
+
+    fprintf(stderr, "Open dev %s\n", path);
+
+    if(!sdr_open(&devs[i], path)) {
+      return (1);
+    }
+
+    if (!sdr_connect_buffers(&devs[i], 8)) {
+      return (1);
+    }
+
+    if(!sdr_set_center_freq(&devs[i], 89*1000*1000)) {
+      return(1);
+    }
+  }
+
+  if(!sync_sdrs(devs, NUM_SDRS, 1<<17)) {
+    return(-1);
+  }
+
+
+
 
   return(0);
 }

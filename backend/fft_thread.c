@@ -58,9 +58,17 @@ static bool ft_load_samples(struct fft_thread *ft, struct fft_buffer *buf)
 
     size_t samples_rd= bytes_rd/sizeof(*samples);
 
-    for (size_t i=0; i<samples_rd; i++, pos++) {
-      buf->in[pos][0]= ((float)samples[i].r - 127.5)/127.5;
-      buf->in[pos][1]= ((float)samples[i].i - 127.5)/127.5;
+    if (ft->window) {
+      for (size_t i=0; i<samples_rd; i++, pos++) {
+        buf->in[pos][0]= ((float)samples[i].r - 127.5)/127.5 * ft->window[pos];
+        buf->in[pos][1]= ((float)samples[i].i - 127.5)/127.5 * ft->window[pos];
+      }
+    }
+    else {
+      for (size_t i=0; i<samples_rd; i++, pos++) {
+        buf->in[pos][0]= ((float)samples[i].r - 127.5)/127.5;
+        buf->in[pos][1]= ((float)samples[i].i - 127.5)/127.5;
+      }
     }
 
     if (!sdr_done(ft->dev)) {
@@ -152,7 +160,7 @@ static void *ft_main(void *dat)
   }
 }
 
-bool ft_setup(struct fft_thread *ft, struct sdr *dev, size_t len_fft,
+bool ft_setup(struct fft_thread *ft, struct sdr *dev, float *window, size_t len_fft,
               size_t buffers_count, uint64_t consumers_count)
 {
   if (!ft || !dev) {
@@ -162,6 +170,7 @@ bool ft_setup(struct fft_thread *ft, struct sdr *dev, size_t len_fft,
   }
 
   ft->dev= dev;
+  ft->window= window;
   ft->len_fft= len_fft;
   ft->consumers= consumers_count;
   ft->running= false;

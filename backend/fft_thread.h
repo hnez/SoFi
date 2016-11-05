@@ -47,6 +47,8 @@ struct fft_thread {
   bool running;
   pthread_t thread;
 
+  float *window;
+
   struct fft_buffer *buffers;
 
   size_t buffers_count;
@@ -54,7 +56,7 @@ struct fft_thread {
   pthread_cond_t buffers_meta_notify;
 };
 
-bool ft_setup(struct fft_thread *ft, struct sdr *dev, size_t len_fft,
+bool ft_setup(struct fft_thread *ft, struct sdr *dev, float *window, size_t len_fft,
               size_t buffers_count, uint64_t consumers_count);
 
 bool ft_start(struct fft_thread *ft);

@@ -23,6 +23,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "sdr.h"
+#include <fftw3.h>
 
-bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len);
+float *window_hamming(size_t len_fft);

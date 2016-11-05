@@ -9,7 +9,7 @@ CFLAGS+= -Werror -g
 endif
 
 PROGNAME= cheapodoa
-SOURCES= main.c sdr.c fft_thread.c combiner_thread.c polar_thread.c synchronize.c
+SOURCES= main.c fft_thread.c window.c synchronize.c sdr.c
 OBJECTS= $(patsubst %.c, %.o, $(SOURCES))
 
 all: $(PROGNAME)

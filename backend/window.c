@@ -17,12 +17,39 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "sdr.h"
+#include <fftw3.h>
 
-bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len);
+#include <math.h>
+
+static float hamming(size_t pos, size_t len)
+{
+  float alpha= 0.53836;
+  float beta= 1 - alpha;
+
+  float phi= (2*M_PI*pos)/(len-1);
+
+  float res= alpha - beta * cos(phi);
+
+  return(res);
+}
+
+float *window_hamming(size_t len_fft)
+{
+  float *ret= NULL;
+
+  ret= calloc(len_fft, sizeof(*ret));
+  if (!ret) {
+    fprintf(stderr, "window_hamming_fwd: allocating window failed\n");
+    return(false);
+  }
+
+  for(size_t i=0; i<len_fft; i++) {
+    ret[i]= hamming(i, len_fft);
+  }
+
+  return (ret);
+}

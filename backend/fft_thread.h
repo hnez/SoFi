@@ -57,7 +57,7 @@ struct fft_thread {
 };
 
 bool ft_setup(struct fft_thread *ft, struct sdr *dev, float *window, size_t len_fft,
-              size_t buffers_count, uint64_t consumers_count);
+              size_t buffers_count, uint64_t consumers_count, bool optimize);
 
 bool ft_start(struct fft_thread *ft);
 bool ft_stop(struct fft_thread *ft);

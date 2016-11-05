@@ -77,7 +77,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 
   fprintf(stderr, "Start syncing\n");
 
-  if(!sync_sdrs(devs, NUM_SDRS, 1<<18)) {
+  if(!sync_sdrs(devs, NUM_SDRS, 1<<17)) {
     return(-1);
   }
 

@@ -31,16 +31,9 @@
 
 #include "sdr.h"
 #include "fft_thread.h"
+#include <volk/volk.h>
+
 #include "window.h"
-
-
-static void multiply_conjugate(fftwf_complex *dst, fftwf_complex *a, fftwf_complex *b, size_t len)
-{
-  for (; len; len--, dst++, a++, b++) {
-    *dst[0]= (*a[0])*(*b[0]) + (*a[1])*(*b[1]);
-    *dst[1]= (*a[1])*(*b[0]) - (*a[0])*(*b[1]);
-  }
-}
 
 inline float mag_squared(fftwf_complex z)
 {
@@ -56,6 +49,17 @@ inline int64_t arr_min(int64_t *vals, size_t len)
   }
 
   return(min);
+}
+
+inline int64_t arr_max(int64_t *vals, size_t len)
+{
+  int64_t max= vals[0];
+
+  for(size_t i=1; i<len; i++) {
+    if (vals[i] > max) max=vals[i];
+  }
+
+  return(max);
 }
 
 bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
@@ -76,7 +80,7 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
   for (size_t i=0; i<num_devs; i++) {
     fprintf(stderr, "sync_sdrs: setting up dev %ld\n", i);
 
-    if (!ft_setup(&ffts[i], &devs[i], window, sync_len, 1, 1)) {
+    if (!ft_setup(&ffts[i], &devs[i], window, sync_len, 1, 1, false)) {
       fprintf(stderr, "sync_sdrs: ft_setup failed\n");
       return(false);
     }
@@ -121,7 +125,10 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
     shifts[0]= 0;
 
     for (size_t sdev=1; sdev<num_devs; sdev++) {
-      multiply_conjugate(conjugate, bufs[0]->out, bufs[sdev]->out, sync_len);
+      volk_32fc_x2_multiply_conjugate_32fc((lv_32fc_t *)conjugate,
+                                           (lv_32fc_t *)bufs[0]->out,
+                                           (lv_32fc_t *)bufs[sdev]->out,
+                                           sync_len);
 
       fftwf_execute(plan);
 
@@ -130,45 +137,50 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
         int64_t shift;
       } maximum= { .mag_sq=FLT_MIN, .shift=0};
 
-      // Check if maximum correlation is in left half of fft (positive shift)
+      // Check if maximum correlation is in left half of fft (negative shift)
       for (uint32_t i=0; i<sync_len/2; i++) {
         float ms= mag_squared(correlation[i])/window[i];
 
         if (ms > maximum.mag_sq) {
           maximum.mag_sq= ms;
-          maximum.shift= i;
+          maximum.shift= -(int64_t)i;
         }
       }
 
-      // Or right half of fft (negative shift)
+      // Or right half of fft (positive shift)
       for (uint32_t f=0, r=sync_len-1; f<sync_len/2; f++, r--) {
         float ms= mag_squared(correlation[r])/window[r];
 
         if (ms > maximum.mag_sq) {
           maximum.mag_sq= ms;
-          maximum.shift= -(int64_t)f;
+          maximum.shift= f;
         }
       }
 
       shifts[sdev]= maximum.shift;
     }
 
-    synced= true;
-    int64_t min_shift= arr_min(shifts, num_devs);
-    for(size_t dev=0; dev<num_devs; dev++) {
-      shifts[dev]-= min_shift;
-
-      if (shifts[dev]) synced= false;
-    }
-
-    // Output the calibrations that will be performed
-    fprintf(stderr, "sync_sdrs: receiver offset calibration: ");
+    // Output the offsets
+    fprintf(stderr, "sync_sdrs: receiver offsets: ");
     for(size_t dev=0; dev<num_devs; dev++) fprintf(stderr, "%li ", shifts[dev]);
     fprintf(stderr, "\n");
 
-    // Read shifts[dev] 2-byte samples
+    int64_t min_shift= arr_min(shifts, num_devs);
+    int64_t max_shift= arr_max(shifts, num_devs);
+
+    synced= min_shift == max_shift;
+
     for(size_t dev=0; dev<num_devs; dev++) {
-      if(frame > 10) sdr_seek(&devs[dev], shifts[dev] * 2);
+      shifts[dev]-= min_shift;
+    }
+
+    for(size_t dev=0; dev<num_devs; dev++) {
+      /* frame 0 can not be trusted as the sample rate
+       * is changed while it is recored */
+      if(frame >= 1) {
+        // Read shifts[dev] 2-byte samples
+        sdr_seek(&devs[dev], shifts[dev] * 2);
+      }
     }
 
     /* Note: Do not release the fft buffer before the

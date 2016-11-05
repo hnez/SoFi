@@ -141,7 +141,7 @@ static void *ft_main(void *dat)
 {
   struct fft_thread *ft= dat;
 
-  fprintf(stderr, "ft_main: thread %p is up and kicking butt\n", dat);
+  fprintf(stderr, "ft_main: thread %p is up and kicking butt!\n", dat);
 
   for (uint64_t frame= 0; ;frame++) {
     struct fft_buffer *buf= ft_get_consumed_buffer(ft);
@@ -170,7 +170,7 @@ static void *ft_main(void *dat)
 }
 
 bool ft_setup(struct fft_thread *ft, struct sdr *dev, float *window, size_t len_fft,
-              size_t buffers_count, uint64_t consumers_count)
+              size_t buffers_count, uint64_t consumers_count, bool optimize)
 {
   if (!ft || !dev) {
     fprintf(stderr, "ft_setup: No ft or sdr structure\n");
@@ -211,7 +211,7 @@ bool ft_setup(struct fft_thread *ft, struct sdr *dev, float *window, size_t len_
 
     ft->buffers[bidx].plan= fftwf_plan_dft_1d(len_fft,
                                               ft->buffers[bidx].in, ft->buffers[bidx].out,
-                                              FFTW_FORWARD, FFTW_MEASURE);
+                                              FFTW_FORWARD, optimize ? FFTW_MEASURE : FFTW_ESTIMATE);
 
     if (!ft->buffers[bidx].plan) {
       fprintf(stderr, "ft_setup: fftwf_plan failed\n");

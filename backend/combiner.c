@@ -42,6 +42,47 @@ inline float squared(float x)
   return(x*x);
 }
 
+/**
+ * When the current phase is at the boundary to rolling over
+ * (+M_PI or -M_PI) and the mean is at the other boundary (-M_PI or +M_PI).
+ * The mean should wander towards the boundary.
+ *
+ * To check which direction the mean should go this functions performs
+ * the normal mean calculation and versions where the the current
+ * value is shifted up/down by 2*M_PI.
+ *
+ * The version that creates the smallest variance wins.
+ */
+inline float phase_mean(float old, float cur, float *variance)
+{
+  float pnaive= cb_weight(old, cur);
+  float ptop= cb_weight(old, cur + 2*M_PI);
+  float pbottom= cb_weight(old, cur - 2*M_PI);
+
+  float vnaive= squared(pnaive - old);
+  float vtop= squared(ptop - old);
+  float vbottom= squared(pbottom - old);
+
+  if (vnaive <= vtop && vnaive <= vbottom) {
+    *variance= vnaive;
+
+    return(pnaive);
+  }
+  else {
+    if (vtop < vbottom) {
+      *variance= vtop;
+
+      return(remainderf(ptop, 2*M_PI));
+    }
+    else {
+      *variance= vbottom;
+
+      return(remainderf(pbottom, 2*M_PI));
+    }
+  }
+}
+
+
 static uint64_t factorial(uint64_t x)
 {
   uint64_t pivot=1;
@@ -71,7 +112,7 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
     fprintf(stderr, "cb_run: NULL as input\n");
     return (false);
   }
-  
+
   size_t num_edges= factorial(num_ffts - 1);
 
   size_t len_fft= ffts[0].len_fft;
@@ -92,12 +133,12 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
     inputs[i].phase= fftwf_alloc_real(len_fft);
     inputs[i].mag_sq= fftwf_alloc_real(len_fft);
   }
-  
+
   struct {
     size_t input_a;
     size_t input_b;
     float *mean_phase;
-    float *mean_var; 
+    float *mean_var;
     float *mean_mag_sq;
   } outputs[num_edges];
 
@@ -124,28 +165,28 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
                                (lv_32fc_t*)buf->out,
                                1.0,
                                len_fft);
-      
+
       volk_32fc_magnitude_squared_32f(inputs[fi].mag_sq,
                                       (lv_32fc_t*)buf->out,
                                       len_fft);
-      
+
       ft_release_frame(&ffts[fi], buf);
     }
 
     for(size_t ei=0; ei<num_edges; ei++) {
       size_t ina= outputs[ei].input_a;
       size_t inb= outputs[ei].input_b;
-        
+
       for(size_t i=0; i<len_fft; i++) {
         float phase= remainderf(inputs[ina].phase[i] - inputs[inb].phase[i], 2*M_PI);
         float mag_sq= inputs[ina].mag_sq[i] * inputs[ina].mag_sq[i];
 
-        outputs[ei].mean_var[i]=
-          cb_weight(outputs[ei].mean_var[i], squared(outputs[ei].mean_phase[i] - phase));
-        
-        outputs[ei].mean_phase[i]= cb_weight(outputs[ei].mean_phase[i], phase);
-        outputs[ei].mean_mag_sq[i]= cb_weight(outputs[ei].mean_mag_sq[i], mag_sq);
+        float variance= 0;
 
+        outputs[ei].mean_phase[i]= phase_mean(outputs[ei].mean_phase[i], phase, &variance);;
+
+        outputs[ei].mean_var[i]= cb_weight(outputs[ei].mean_var[i], variance);
+        outputs[ei].mean_mag_sq[i]= cb_weight(outputs[ei].mean_mag_sq[i], mag_sq);
       }
     }
 

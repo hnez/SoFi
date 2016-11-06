@@ -62,7 +62,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
     }
 
     if(!ft_setup(&ffts[i], &devs[i], window,
-                 FFT_LEN, 8, 1, true)) {
+                 FFT_LEN, 32, 1, true)) {
       return(1);
     }
   }

@@ -29,6 +29,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <math.h>
+
 #include "sdr.h"
 #include "fft_thread.h"
 #include <volk/volk.h>
@@ -148,7 +150,7 @@ bool sync_sdrs(struct sdr *devs, size_t num_devs, size_t sync_len)
       }
 
       // Or right half of fft (positive shift)
-      for (uint32_t f=0, r=sync_len-1; f<sync_len/2; f++, r--) {
+      for (uint32_t f=1, r=sync_len-1; f<sync_len/2; f++, r--) {
         float ms= mag_squared(correlation[r])/window[r];
 
         if (ms > maximum.mag_sq) {

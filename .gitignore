@@ -1,5 +1,6 @@
-backend/cheapodoa
+backend/sofi
 backend/top_block.py
+\#*
 *.bin
 *.o
 *~

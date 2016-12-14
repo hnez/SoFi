@@ -8,15 +8,14 @@ ifeq ($(DEBUG), true)
 CFLAGS+= -Werror -g
 endif
 
-PROGNAME= cheapodoa
-SOURCES= main.c fft_thread.c window.c synchronize.c sdr.c combiner.c
+SOURCES= fft_thread.c window.c synchronize.c sdr.c combiner.c
 OBJECTS= $(patsubst %.c, %.o, $(SOURCES))
 
-all: $(PROGNAME)
+all: sofi vu_meter
 
-$(PROGNAME): $(OBJECTS)
-	gcc -o $(PROGNAME) $(OBJECTS) $(CFLAGS)
+sofi: $(OBJECTS) sofi.c
+	gcc -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
 clean:
-	rm -f $(OBJECTS) main
+	rm -f $(OBJECTS) sofi vu_meter

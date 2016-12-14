@@ -11,9 +11,12 @@ endif
 SOURCES= fft_thread.c window.c synchronize.c sdr.c combiner.c
 OBJECTS= $(patsubst %.c, %.o, $(SOURCES))
 
-all: sofi vu_meter
+all: sofi rf_monitor
 
 sofi: $(OBJECTS) sofi.c
+	gcc -o $@ $^ $(CFLAGS)
+
+rf_monitor: $(OBJECTS) rf_monitor.c
 	gcc -o $@ $^ $(CFLAGS)
 
 .PHONY: clean

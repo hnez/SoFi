@@ -48,26 +48,57 @@ class Vector(object):
         return (Vector(-self.x, -self.y))
 
 class AntennaPair(object):
-    def __init__(self, ant_a, ant_b):
-        self.pos_a= ant_a['pos']
-        self.pos_b= ant_b['pos']
-        self.vector= self.pos_b - self.pos_a
+    def __init__(self, ant_a, ant_b, lambda_map):
+        self.ant_a= ant_a
+        self.ant_b= ant_a
+
+        self.lambda_map= lambda_map
+
+        self.vector= ant_b['pos'] - ant_a['pos']
         (self.distance, self.angle)= self.vector.polar()
 
-        self.frame= -1
+        print('{} -> {}:'.format(ant_a['name'], ant_b['name']))
+        print(' dst: {}m'.format(self.distance))
+        print(' ang: {}'.format(math.degrees(self.angle)))
+        
+    def process(self, phases, variances, mag_sqs):
+        samples= zip(it.count(0), phases, variances, mag_sqs)
 
-    def process(self, frame, phases, variances, mag_sqs):
-        self.frame= frame
+        out_dist= array('f')
 
-        samples= zip(phases, variances, mag_sqs)
+        for (num, phase, variance, mag_sq) in samples:            
+            dist= phase/math.pi * self.lambda_map[num]
 
-        for (num, phase, variance, mag_sq) in samples:
-            pass
+            out_dist.append(dist)
+            
+        return(out_dist)
+
+def gen_lambda_map(freq_center, freq_sample, fft_len):
+    freq_min= freq_center - freq_sample/2
+    freq_max= freq_center + freq_sample/2
+    c= 299792458.0
+    
+    def num_to_freq(num):
+        fft_half= fft_len//2
+        num_fft_trans= fft_half + (num if num < fft_half else num-fft_len)
+        rpos= num_fft_trans / fft_len
+
+        return(freq_min * (1-rpos) + freq_max * rpos)
+
+    def freq_to_lambda(freq):
+        return(c/freq)
+
+    lambda_map= list(
+        freq_to_lambda(num_to_freq(num))
+        for num in range(fft_len)
+    )
+    
+    return(lambda_map)
 
 def main(config):
     antennas= list()
     antenna_pairs= list()
-
+    
     for ant_idx in it.count(1):
         antname= 'Antenna {}'.format(ant_idx)
         antenna= dict()
@@ -79,29 +110,37 @@ def main(config):
         pos_y= float(config[antname]['position_y'])
 
         antenna['pos']= Vector(pos_x, pos_y)
+        antenna['name']= antname
 
         antennas.append(antenna)
 
-    for (ant_a, ant_b) in it.combinations(enumerate(antennas), 2):
-        antenna_pairs.append(AntennaPair(ant_a[1], ant_b[1]))
-
     fft_len= int(config['Common']['fft_len'])
+    center_freq= float(config['Common']['center_freq'])
+    sampling_freq= float(config['Common']['sampling_freq'])
+    
+    lambda_map= gen_lambda_map(center_freq, sampling_freq, fft_len)
+        
+    for (ant_a, ant_b) in it.combinations(antennas, 2):
+        antenna_pairs.append(AntennaPair(ant_a, ant_b, lambda_map))
 
+    
+    fo= open('tsto.bin', 'wb')
+    
     for frame in it.count(0):
         for pair in antenna_pairs:
             phases= array('f')
             variances= array('f')
             mag_sq= array('f')
 
-            phases.fromfile(sys.stdin, fft_len)
-            variances.fromfile(sys.stdin, fft_len)
-            mag_sq.fromfile(sys.stdin, fft_len)
+            phases.fromfile(sys.stdin.buffer, fft_len)
+            variances.fromfile(sys.stdin.buffer, fft_len)
+            mag_sq.fromfile(sys.stdin.buffer, fft_len)
 
-            pair.process(frame, phases, variances, mag_sq)
-
+            rp= pair.process(phases, variances, mag_sq)
+            rp.tofile(fo)
+            
 if __name__ == '__main__':
     config= ConfigParser()
-
-    config.read('cheapodoa.ini')
-
+    config.read('sofi.ini')
+    
     main(config)

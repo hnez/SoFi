@@ -57,27 +57,30 @@ class AntennaPair(object):
         self.vector= ant_b['pos'] - ant_a['pos']
         (self.distance, self.angle)= self.vector.polar()
 
-        print('{} -> {}:'.format(ant_a['name'], ant_b['name']))
-        print(' dst: {}m'.format(self.distance))
-        print(' ang: {}'.format(math.degrees(self.angle)))
-        
+        print('{} -> {}:'.format(ant_a['name'], ant_b['name']), file=sys.stderr)
+        print(' dst: {}m'.format(self.distance), file=sys.stderr)
+        print(' ang: {}'.format(math.degrees(self.angle)), file=sys.stderr)
+
     def process(self, phases, variances, mag_sqs):
-        samples= zip(it.count(0), phases, variances, mag_sqs)
+        steepness= sum(
+            clamp(a-b, math.pi/2)
+            for (a,b)
+            in zip(phases[511:1535], phases[512:1536])
+        )/len(phases)
 
-        out_dist= array('f')
+        dists= array('f', (
+            phase + steepness*num
+            for (num,phase)
+            in enumerate(phases)
+        ))
 
-        for (num, phase, variance, mag_sq) in samples:            
-            dist= phase/math.pi * self.lambda_map[num]
-
-            out_dist.append(dist)
-            
-        return(out_dist)
+        return(dists)
 
 def gen_lambda_map(freq_center, freq_sample, fft_len):
     freq_min= freq_center - freq_sample/2
     freq_max= freq_center + freq_sample/2
     c= 299792458.0
-    
+
     def num_to_freq(num):
         fft_half= fft_len//2
         num_fft_trans= fft_half + (num if num < fft_half else num-fft_len)
@@ -92,13 +95,16 @@ def gen_lambda_map(freq_center, freq_sample, fft_len):
         freq_to_lambda(num_to_freq(num))
         for num in range(fft_len)
     )
-    
+
     return(lambda_map)
+
+def clamp(num, lim):
+    return(num - round(num/lim)*lim)
 
 def main(config):
     antennas= list()
     antenna_pairs= list()
-    
+
     for ant_idx in it.count(1):
         antname= 'Antenna {}'.format(ant_idx)
         antenna= dict()
@@ -117,15 +123,18 @@ def main(config):
     fft_len= int(config['Common']['fft_len'])
     center_freq= float(config['Common']['center_freq'])
     sampling_freq= float(config['Common']['sampling_freq'])
-    
+
     lambda_map= gen_lambda_map(center_freq, sampling_freq, fft_len)
-        
+
+    print('Target wavelengths are between {:.6}m and {:.6}m'.format(min(lambda_map), max(lambda_map)),
+          file=sys.stderr)
+
     for (ant_a, ant_b) in it.combinations(antennas, 2):
         antenna_pairs.append(AntennaPair(ant_a, ant_b, lambda_map))
 
-    
+
     fo= open('tsto.bin', 'wb')
-    
+
     for frame in it.count(0):
         for pair in antenna_pairs:
             phases= array('f')
@@ -138,9 +147,9 @@ def main(config):
 
             rp= pair.process(phases, variances, mag_sq)
             rp.tofile(fo)
-            
+
 if __name__ == '__main__':
     config= ConfigParser()
     config.read('sofi.ini')
-    
+
     main(config)

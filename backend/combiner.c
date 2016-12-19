@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <math.h>
 #include <volk/volk.h>
@@ -82,7 +83,6 @@ inline float phase_mean(float old, float cur, float *variance)
   }
 }
 
-
 static uint64_t factorial(uint64_t x)
 {
   uint64_t pivot=1;
@@ -101,6 +101,26 @@ static bool write_forreal(int fd, void *dat, size_t len)
 
     dat=&((uint8_t *)dat)[ret];
     written+=ret;
+  }
+
+  return(true);
+}
+
+static bool write_flipped_fft_halves(int fd, float *samples, size_t len)
+{
+  if(len%2 != 0) {
+    fprintf(stderr, "write_flipped_fft_halves: got uneven input length\n");
+    return(false);
+  }
+
+  float *top= &samples[len/2];
+  float *bottom= &samples[0];
+
+  if(!write_forreal(fd, top, (len/2) * sizeof(*samples)) ||
+     !write_forreal(fd, bottom, (len/2) * sizeof(*samples))) {
+    
+    fprintf(stderr, "write_flipped_fft_halves: write failed\n");
+    return(false);
   }
 
   return(true);
@@ -152,6 +172,10 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
       outputs[i].mean_phase= fftwf_alloc_real(len_fft);
       outputs[i].mean_var= fftwf_alloc_real(len_fft);
       outputs[i].mean_mag_sq= fftwf_alloc_real(len_fft);
+
+      memset(outputs[i].mean_phase, 0, sizeof(float) * len_fft);
+      memset(outputs[i].mean_var, 0, sizeof(float) * len_fft);
+      memset(outputs[i].mean_mag_sq, 0, sizeof(float) * len_fft);
     }
   }
 
@@ -192,9 +216,9 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
 
     if((frame % 100) == 0) {
       for(size_t ei=0; ei<num_edges; ei++) {
-        write_forreal(fd, outputs[ei].mean_phase, sizeof(float) * len_fft);
-        write_forreal(fd, outputs[ei].mean_var, sizeof(float) * len_fft);
-        write_forreal(fd, outputs[ei].mean_mag_sq, sizeof(float) * len_fft);
+        write_flipped_fft_halves(fd, outputs[ei].mean_phase, len_fft);
+        write_flipped_fft_halves(fd, outputs[ei].mean_var, len_fft);
+        write_flipped_fft_halves(fd, outputs[ei].mean_mag_sq, len_fft);
       }
     }
   }

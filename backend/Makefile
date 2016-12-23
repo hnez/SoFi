@@ -1,5 +1,5 @@
 CFLAGS= -std=gnu11
-CFLAGS+= -O3 -flto -march=native
+CFLAGS+= -O3 -flto -march=native -ffast-math -funsafe-math-optimizations
 CFLAGS+= -Wall -Wextra -Wpedantic -Wstrict-overflow -Wshadow -fno-strict-aliasing
 CFLAGS+= -pthread
 CFLAGS+= -lfftw3f -lv4l2 -lm -lvolk

@@ -1,6 +1,8 @@
 import numpy as np
 import itertools as it
 
+from random import Random
+
 import sys
 
 class SimplexOptim(object):
@@ -17,15 +19,17 @@ class SimplexOptim(object):
         for (n, top) in enumerate(self.ltop):
             self.simplex[n+1][n]= top
 
+        self.seed= Random(0)
+
     def points_mean(self, points):
         return(sum(points)/len(points))
 
     def points_expand(self, pa, pb, f):
         newp= (1-f)*pa + f*pb
 
-        w= self.ltop - self.lbottom        
+        w= self.ltop - self.lbottom
         newp= ((newp - self.lbottom) % w) + self.lbottom
-        
+
         return(newp)
 
     def points_rank(self, points, score_fn):
@@ -35,6 +39,17 @@ class SimplexOptim(object):
         points= list(rank[0] for rank in ranking)
 
         return(points)
+
+    def noise_point(self, mid):
+        new= mid.copy()
+
+        nidx= self.seed.randrange(len(new))
+        width= (self.ltop - self.lbottom)[nidx]
+        spread= width/5
+
+        new[nidx]+= self.seed.uniform(-spread, spread)
+
+        return(new)
 
     def optimize_hop(self, score_fn):
         points= self.points_rank(self.simplex, score_fn)
@@ -47,6 +62,7 @@ class SimplexOptim(object):
         pivot= points[0]
 
         expands= list(self.points_expand(mid, pivot, f) for f in self.walk_factors)
+        expands.append(self.noise_point(mid))
 
         new_points= self.points_rank(expands, score_fn)
 

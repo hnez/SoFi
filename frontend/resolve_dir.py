@@ -63,7 +63,16 @@ class AntArrayEdge(object):
         self.dirc= math.atan2(edge[0], edge[1])
 
     def set_wavelengths(self, wavelengths):
-        self.rel_wl= wavelengths / self.dist
+        self.rel_wl= (wavelengths / self.dist) / (2*math.pi)
+
+    def integrate_illegal(self, phases, variances):
+        orig_dists= phases * self.rel_wl
+        dists= np.abs(orig_dists) - self.dist
+        np.clip(dists, 0, 4*self.dist, dists)
+
+        res= (dists / variances).mean()
+
+        return(res)
 
     def get_directions(self, phases, variances):
         rel_wl= self.rel_wl
@@ -87,14 +96,20 @@ class AntArray(object):
         self.edges= edges
 
         self.fft_len= fft_len
+        self.crop= self.fft_len//8
+        self.samp_len= self.fft_len - 2*self.crop
 
-        self.frequencies= np.linspace(fq_low, fq_high, fft_len)
+        self.frequencies= np.linspace(fq_low, fq_high, self.fft_len)[self.crop:-self.crop]
         self.wavelengths= self.speed_of_light/self.frequencies
 
         for edge in self.edges:
             edge.set_wavelengths(self.wavelengths)
 
         self.init_spx_optim()
+
+        self.fq_drift= np.zeros(len(edges))
+        self.phoff_old= np.zeros(len(edges))
+        self.ph_acc= np.zeros(len(edges))
 
     def init_spx_optim(self):
         # FIXME: remove constants
@@ -112,9 +127,9 @@ class AntArray(object):
         if len(np_sample) != 3*self.fft_len:
             raise(Exception())
 
-        phases= np_sample[:self.fft_len]
-        variances= np_sample[self.fft_len:self.fft_len*2]
-        mag_sqs= np_sample[self.fft_len*2:]
+        phases= np_sample[:self.fft_len][self.crop:-self.crop]
+        variances= np_sample[self.fft_len:self.fft_len*2][self.crop:-self.crop]
+        mag_sqs= np_sample[self.fft_len*2:][self.crop:-self.crop]
 
         return((phases, variances, mag_sqs))
 
@@ -138,25 +153,37 @@ class AntArray(object):
             (ph_offs, edge_samp_offs)= parse_spx_params(parameters)
 
             phases= list(
-                corrected_phase(ph, pho, sao)
-                for (ph, pho, sao) in zip(orig_phases, ph_offs, edge_samp_offs)
+                corrected_phase(ph, pho + pha, sao)
+                for (ph, pho, pha, sao) in zip(orig_phases, ph_offs, self.ph_acc, edge_samp_offs)
             )
 
             steepness= sum(
-                abs(remainder(ph[128:] - ph[:-128]).mean())
+                math.log(abs(remainder(ph[1:] - ph[:-1]).mean()) + 0.001)
                 for ph in phases
             )
 
-            dc_off= sum(abs(ph[910:920].mean()) for ph in phases) / 5
-            
-            return (-steepness-dc_off)
+            overlong= sum(
+                math.log(edge.integrate_illegal(phase, variance) + 0.001)
+                for (edge, phase, variance) in
+                zip(self.edges, phases, variances)
+            )
+
+            #print('steep: ', steepness, file=sys.stderr)
+            #print('olong: ', overlong, file=sys.stderr)
+
+            return (-steepness -overlong)
 
         parameters= self.spx_opt.optimize_hop(test_parameters)
         (ph_offs, edge_samp_offs)= parse_spx_params(parameters)
 
+        phoff_new= np.array(ph_offs)
+        self.fq_drift+= (phoff_new - self.phoff_old) / 1024
+        self.ph_acc= remainder(self.fq_drift + self.ph_acc)
+        self.phoff_old= phoff_new
+
         phases= list(
-            corrected_phase(ph, pho, sao)
-            for (ph, pho, sao) in zip(orig_phases, ph_offs, edge_samp_offs)
+            corrected_phase(ph, pho + pha, sao)
+            for (ph, pho, pha, sao) in zip(orig_phases, ph_offs, self.ph_acc, edge_samp_offs)
         )
 
 
@@ -168,8 +195,8 @@ class AntArray(object):
 
 
 antennas= [
-    (-0.2, -0.2), (-0.2,  0.2),
-    ( 0.2,  0.2), ( 0.2, -0.2)
+    (-0.15, -0.15), (-0.15,  0.15),
+    ( 0.15,  0.15), ( 0.15, -0.15)
 ]
 
 edges= list(AntArrayEdge(*aa, *ab) for (aa, ab) in it.combinations(antennas, 2))

@@ -1,12 +1,14 @@
 import numpy as np
 import itertools as it
 
+import sys
+
 class SimplexOptim(object):
-    walk_factors= (-0.95, 0.5, 2.05)
+    walk_factors= (-1.05, 0.45, 1.95)
 
     def __init__(self, limits_bottom, limits_top):
-        self.ltop= limits_top
-        self.lbottom= limits_bottom
+        self.ltop= np.array(limits_top)
+        self.lbottom= np.array(limits_bottom)
 
         simplex_dim= len(limits_top) + 1
 
@@ -21,11 +23,9 @@ class SimplexOptim(object):
     def points_expand(self, pa, pb, f):
         newp= (1-f)*pa + f*pb
 
-        for (i, b, t) in zip(it.count(0), self.lbottom, self.ltop):
-            w= t-b
-
-            newp[i]= ((newp[i] - b) % w) + b
-
+        w= self.ltop - self.lbottom        
+        newp= ((newp - self.lbottom) % w) + self.lbottom
+        
         return(newp)
 
     def points_rank(self, points, score_fn):
@@ -39,9 +39,9 @@ class SimplexOptim(object):
     def optimize_hop(self, score_fn):
         points= self.points_rank(self.simplex, score_fn)
 
-        #print('Simplex:')
+        #print('Simplex:', file=sys.stderr)
         #for pnt in points:
-        #    print(','.join(str(num) for num in pnt))
+        #    print(','.join(str(num) for num in pnt), file=sys.stderr)
 
         mid= self.points_mean(points[1:])
         pivot= points[0]

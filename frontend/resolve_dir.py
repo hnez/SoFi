@@ -49,7 +49,7 @@ def prop_paint(centers, stddevs, width):
 
     return(canvas)
 
-def remainder(x1, x2=math.pi):
+def remainder(x1, x2=2*math.pi):
     return(x1 - x2*np.round(x1 / x2))
 
 class AntArrayEdge(object):
@@ -127,7 +127,7 @@ class AntArray(object):
             ant_samp_offs= [0] + list(parameters[:3])
             ph_offs= parameters[3:]
 
-            edge_samp_offs= list((b - a) for (a,b) in it.combinations(ant_samp_offs, 2))
+            edge_samp_offs= list((a - b) for (a,b) in it.combinations(ant_samp_offs, 2))
 
             return((ph_offs, edge_samp_offs))
 
@@ -147,18 +147,12 @@ class AntArray(object):
                 for ph in phases
             )
 
-            dc_off= sum(abs(ph.mean()) for ph in phases) / self.fft_len
-
-            print('sn: ', steepness, file=sys.stderr)
-            print('dc: ', dc_off, file=sys.stderr)
-
-            return (-steepness -dc_off)
+            dc_off= sum(abs(ph[910:920].mean()) for ph in phases) / 5
+            
+            return (-steepness-dc_off)
 
         parameters= self.spx_opt.optimize_hop(test_parameters)
         (ph_offs, edge_samp_offs)= parse_spx_params(parameters)
-
-        print('ph_offs: ', ph_offs, file=sys.stderr)
-        print('sa_offs: ', edge_samp_offs, file=sys.stderr)
 
         phases= list(
             corrected_phase(ph, pho, sao)
@@ -166,8 +160,8 @@ class AntArray(object):
         )
 
 
-        for ph in orig_phases:
-            array('f', ph).tofile(sys.stdout.buffer)
+        #for ph in orig_phases:
+        #    array('f', ph).tofile(sys.stdout.buffer)
 
         for ph in phases:
             array('f', ph).tofile(sys.stdout.buffer)

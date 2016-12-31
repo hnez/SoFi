@@ -33,6 +33,9 @@ def prop_paint(centers, stddevs, width):
         center= int((ocenter + math.pi) * spread + 0.5)
         stddev= ostddev * spread
 
+        if stddev > width//8:
+            continue
+
         dist= normal_dist(stddev) + 1.0
 
         sstart= center - len(dist)//2
@@ -45,7 +48,7 @@ def prop_paint(centers, stddevs, width):
     # multiplication saving 1.
     # Normalize the canvas values by ca. len(center)
     canvas= db_canvas[:width] * db_canvas[width:] - 1
-    canvas/= canvas.sum()
+    canvas/= canvas.sum() or 1
 
     return(canvas)
 
@@ -63,34 +66,35 @@ class AntArrayEdge(object):
         self.dirc= math.atan2(edge[0], edge[1])
 
     def set_wavelengths(self, wavelengths):
-        self.rel_wl= (wavelengths / self.dist) / (2*math.pi)
+        self.rel_wl= (wavelengths / self.dist) / (4*math.pi)
 
     def integrate_illegal(self, phases, variances):
         orig_dists= phases * self.rel_wl
         dists= np.abs(orig_dists) - self.dist
-        np.clip(dists, 0, 4*self.dist, dists)
+        np.clip(dists, 0, 100*self.dist, dists)
 
         res= (dists / variances).mean()
 
         return(res)
 
-    def get_directions(self, phases, variances):
-        rel_wl= self.rel_wl
-        rel_len= remainder(phases * rel_wl, 1.0)
+    def get_direction(self, idx, phase, variance):
+        rel_len= phase * self.rel_wl[idx]
 
-        rel_dirs= np.arccos(rel_len)
+        if rel_len >= 1 or rel_len<=-1:
+            return(None)
 
-        # FIXME: the 1.01 should be 1.0 but shit breaks
-        # loose when rel_len containes 1.0
-        var_dirs= (rel_wl**2 * variances) / (1.01 - rel_len)
+        rel_dir= np.arccos(rel_len)
 
-        left= (self.dirc + rel_dirs, var_dirs)
-        right= (self.dirc - rel_dirs, var_dirs)
+        var_dir= 100 * (self.rel_wl[idx]**2 * variance) / (1 - rel_len)
 
-        return((left, right))
+        dir_lr= (self.dirc + rel_dir, self.dirc - rel_dir)
+        var_lr= (var_dir, var_dir)
+
+        return(dir_lr, var_lr)
 
 class AntArray(object):
     speed_of_light= 299792458.0
+    paint_areas= (148, 456, 654, 1063, 1169, 1367)
 
     def __init__(self, edges, fft_len, fq_low, fq_high):
         self.edges= edges
@@ -107,18 +111,19 @@ class AntArray(object):
 
         self.init_spx_optim()
 
-        self.fq_drift= np.zeros(len(edges))
-        self.phoff_old= np.zeros(len(edges))
-        self.ph_acc= np.zeros(len(edges))
-
     def init_spx_optim(self):
         # FIXME: remove constants
         limits_samp_off= np.array([math.pi] * 3)
-        limits_ph_off= np.array([math.pi] *6)
+        limits_ph_off= np.array([math.pi] *3)
 
         limits_params= np.concatenate((limits_samp_off, limits_ph_off))
 
         self.spx_opt= SimplexOptim(-limits_params, limits_params)
+
+
+        self.fq_drift= np.zeros(3) + 0.01
+        self.ph_old= np.zeros(3)
+        self.ph_acc= np.zeros(3)
 
     def read_samples(self, fd):
         raw_sample= fd.read(3 * 4 * self.fft_len)
@@ -133,75 +138,101 @@ class AntArray(object):
 
         return((phases, variances, mag_sqs))
 
+    def paint_dist(self, idx, phases, variances):
+        d_centers= list()
+        d_vars= list()
+
+        for (edge, ph, var) in zip(self.edges, phases, variances):
+            cvs= edge.get_direction(idx, ph[idx], var[idx])
+
+            if not cvs:
+                continue
+
+            (cs, vs)= cvs
+
+            d_centers.extend(cs)
+            d_vars.extend(vs)
+
+        canvas= prop_paint(d_centers, np.sqrt(d_vars), self.samp_len)
+
+        return(canvas)
+
     def file_step(self, fd):
         samples= list(self.read_samples(fd) for edge in self.edges)
 
         (orig_phases, variances, mag_sqs)= zip(*samples)
 
-        def parse_spx_params(parameters):
+        def process_spx_params(parameters, update=False):
             ant_samp_offs= [0] + list(parameters[:3])
-            ph_offs= parameters[3:]
+            ant_ph_offs= parameters[3:]
+
+            ph_diff= ant_ph_offs - self.ph_old
+            fq_drift= (self.fq_drift * 127 + ph_diff) / 128
+            ph_acc= remainder(self.ph_acc + fq_drift)
+
+            if update:
+                self.fq_drift= fq_drift
+                self.ph_acc= ph_acc
+                self.ph_old= ant_ph_offs
+
+            ant_ph_corr= [0] + list(ant_ph_offs + ph_acc)
 
             edge_samp_offs= list((a - b) for (a,b) in it.combinations(ant_samp_offs, 2))
+            edge_ph_corr= list((a - b) for (a,b) in it.combinations(ant_ph_corr, 2))
 
-            return((ph_offs, edge_samp_offs))
+            return((edge_ph_corr, edge_samp_offs))
 
         def corrected_phase(ph, pho, sao):
             return(remainder(ph + np.linspace(-sao, sao, len(ph)) + pho))
 
         def test_parameters(parameters):
-            (ph_offs, edge_samp_offs)= parse_spx_params(parameters)
+            (ph_offs, edge_samp_offs)= process_spx_params(parameters)
 
             phases= list(
-                corrected_phase(ph, pho + pha, sao)
-                for (ph, pho, pha, sao) in zip(orig_phases, ph_offs, self.ph_acc, edge_samp_offs)
+                corrected_phase(ph, pho, sao)
+                for (ph, pho, sao) in zip(orig_phases, ph_offs, edge_samp_offs)
             )
 
-            steepness= sum(
-                math.log(abs(remainder(ph[1:] - ph[:-1]).mean()) + 0.001)
-                for ph in phases
-            )
-
-            overlong= sum(
+            dist_limit= sum(
                 math.log(edge.integrate_illegal(phase, variance) + 0.001)
                 for (edge, phase, variance) in
                 zip(self.edges, phases, variances)
             )
 
-            #print('steep: ', steepness, file=sys.stderr)
-            #print('olong: ', overlong, file=sys.stderr)
+            match= sum(
+                max(self.paint_dist(idx, phases, variances))
+                for idx in self.paint_areas
+            )
 
-            return (-steepness -overlong)
+            return (match - dist_limit)
 
         parameters= self.spx_opt.optimize_hop(test_parameters)
-        (ph_offs, edge_samp_offs)= parse_spx_params(parameters)
-
-        phoff_new= np.array(ph_offs)
-        self.fq_drift+= (phoff_new - self.phoff_old) / 1024
-        self.ph_acc= remainder(self.fq_drift + self.ph_acc)
-        self.phoff_old= phoff_new
+        (ph_offs, edge_samp_offs)= process_spx_params(parameters, True)
 
         phases= list(
-            corrected_phase(ph, pho + pha, sao)
-            for (ph, pho, pha, sao) in zip(orig_phases, ph_offs, self.ph_acc, edge_samp_offs)
+            corrected_phase(ph, pho, sao)
+            for (ph, pho, sao) in zip(orig_phases, ph_offs, edge_samp_offs)
         )
 
+        for pa in self.paint_areas:
+            canvas= self.paint_dist(pa, phases, variances)
 
-        #for ph in orig_phases:
-        #    array('f', ph).tofile(sys.stdout.buffer)
+            array('f', canvas).tofile(sys.stdout.buffer)
 
         for ph in phases:
             array('f', ph).tofile(sys.stdout.buffer)
 
-
 antennas= [
-    (-0.15, -0.15), (-0.15,  0.15),
-    ( 0.15,  0.15), ( 0.15, -0.15)
+    (0,0),
+    (-0.355, 0),
+    (-0.1754, 0.3235),
+    (-0.1855, 0.1585)
 ]
 
 edges= list(AntArrayEdge(*aa, *ab) for (aa, ab) in it.combinations(antennas, 2))
 
-antarr= AntArray(edges, 2048, 90.5e6, 92.5e6)
+antarr= AntArray(edges, 2048, 101e6, 103e6)
 
-while True:
-    antarr.file_step(sys.stdin.buffer)
+if __name__ == '__main__':
+    while True:
+        antarr.file_step(sys.stdin.buffer)

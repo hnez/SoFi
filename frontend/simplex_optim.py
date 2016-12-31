@@ -45,7 +45,7 @@ class SimplexOptim(object):
 
         nidx= self.seed.randrange(len(new))
         width= (self.ltop - self.lbottom)[nidx]
-        spread= width/5
+        spread= width/4
 
         new[nidx]+= self.seed.uniform(-spread, spread)
 

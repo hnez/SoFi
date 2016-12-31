@@ -57,7 +57,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
       return (1);
     }
 
-    if(!sdr_set_center_freq(&devs[i], 91480*1000)) {
+    if(!sdr_set_center_freq(&devs[i], 102*1000*1000)) {
       return(1);
     }
 

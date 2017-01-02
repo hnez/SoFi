@@ -214,7 +214,7 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
       }
     }
 
-    if((frame % 64) == 0) {
+    if((frame % 128) == 0) {
       for(size_t ei=0; ei<num_edges; ei++) {
         write_flipped_fft_halves(fd, outputs[ei].mean_phase, len_fft);
         write_flipped_fft_halves(fd, outputs[ei].mean_var, len_fft);

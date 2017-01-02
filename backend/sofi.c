@@ -18,7 +18,7 @@
  */
 
 #define NUM_SDRS (4)
-#define FFT_LEN (2048)
+#define FFT_LEN (512)
 
 #include <pthread.h>
 #include <stdio.h>

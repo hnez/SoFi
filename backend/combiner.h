@@ -21,7 +21,7 @@
 
 #include "fft_thread.h"
 
-#define CB_WEIGHT_OLD (127)
+#define CB_WEIGHT_OLD (511)
 #define CB_WEIGHT_CUR (1)
 #define CB_WEIGHT_BOTH (CB_WEIGHT_OLD + CB_WEIGHT_CUR)
 

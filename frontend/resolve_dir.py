@@ -66,7 +66,7 @@ class AntArrayEdge(object):
         self.dirc= math.atan2(edge[0], edge[1])
 
     def set_wavelengths(self, wavelengths):
-        self.rel_wl= (wavelengths / self.dist) / (4*math.pi)
+        self.rel_wl= (wavelengths / self.dist) / (2*math.pi)
 
     def integrate_illegal(self, phases, variances):
         orig_dists= phases * self.rel_wl
@@ -85,7 +85,7 @@ class AntArrayEdge(object):
 
         rel_dir= np.arccos(rel_len)
 
-        var_dir= 100 * (self.rel_wl[idx]**2 * variance) / (1 - rel_len)
+        var_dir= 25 * (self.rel_wl[idx]**2 * variance) / (1 - rel_len)
 
         dir_lr= (self.dirc + rel_dir, self.dirc - rel_dir)
         var_lr= (var_dir, var_dir)
@@ -94,22 +94,43 @@ class AntArrayEdge(object):
 
 class AntArray(object):
     speed_of_light= 299792458.0
-    paint_areas= (148, 456, 654, 1063, 1169, 1367)
+    paint_areas= (400//4, 712//4, 913//4, 1323//4, 1419//4, 1648//4)
 
     def __init__(self, edges, fft_len, fq_low, fq_high):
         self.edges= edges
 
         self.fft_len= fft_len
-        self.crop= self.fft_len//8
-        self.samp_len= self.fft_len - 2*self.crop
 
-        self.frequencies= np.linspace(fq_low, fq_high, self.fft_len)[self.crop:-self.crop]
+        self.frequencies= np.linspace(fq_low, fq_high, self.fft_len)
         self.wavelengths= self.speed_of_light/self.frequencies
 
         for edge in self.edges:
             edge.set_wavelengths(self.wavelengths)
 
         self.init_spx_optim()
+
+        lin= np.linspace(-np.pi, np.pi, fft_len)
+        self.cow_re= np.cos(lin)
+        self.cow_im= np.sin(lin)
+        self.focus_rates= np.concatenate((
+            np.linspace(0, 1, fft_len//2),
+            np.linspace(1, 0, fft_len//2)
+        ))
+
+    def center_of_weight(self, weights):
+        re_sum= (weights * self.cow_re).sum()
+        im_sum= (weights * self.cow_im).sum()
+
+        rpos= math.atan2(im_sum, re_sum)/(2 * math.pi) + 0.5
+
+        return(rpos * len(weights))
+
+    def rate_focus(self, canvas):
+        cow= int(self.center_of_weight(canvas) + 0.5)
+
+        recenter= np.concatenate((canvas[cow:], canvas[:cow]))
+
+        return((recenter * self.focus_rates).mean())
 
     def init_spx_optim(self):
         # FIXME: remove constants
@@ -121,9 +142,10 @@ class AntArray(object):
         self.spx_opt= SimplexOptim(-limits_params, limits_params)
 
 
-        self.fq_drift= np.zeros(3) + 0.01
-        self.ph_old= np.zeros(3)
+        self.fq_drift= np.zeros(3)
         self.ph_acc= np.zeros(3)
+        self.ph_old= np.zeros(3)
+        self.sao_old= np.zeros(3)
 
     def read_samples(self, fd):
         raw_sample= fd.read(3 * 4 * self.fft_len)
@@ -132,9 +154,9 @@ class AntArray(object):
         if len(np_sample) != 3*self.fft_len:
             raise(Exception())
 
-        phases= np_sample[:self.fft_len][self.crop:-self.crop]
-        variances= np_sample[self.fft_len:self.fft_len*2][self.crop:-self.crop]
-        mag_sqs= np_sample[self.fft_len*2:][self.crop:-self.crop]
+        phases= np_sample[:self.fft_len]
+        variances= np_sample[self.fft_len:self.fft_len*2]
+        mag_sqs= np_sample[self.fft_len*2:]
 
         return((phases, variances, mag_sqs))
 
@@ -153,7 +175,7 @@ class AntArray(object):
             d_centers.extend(cs)
             d_vars.extend(vs)
 
-        canvas= prop_paint(d_centers, np.sqrt(d_vars), self.samp_len)
+        canvas= prop_paint(d_centers, np.sqrt(d_vars), self.fft_len)
 
         return(canvas)
 
@@ -163,30 +185,42 @@ class AntArray(object):
         (orig_phases, variances, mag_sqs)= zip(*samples)
 
         def process_spx_params(parameters, update=False):
-            ant_samp_offs= [0] + list(parameters[:3])
+            ant_samp_offs= parameters[:3]
             ant_ph_offs= parameters[3:]
 
             ph_diff= ant_ph_offs - self.ph_old
             fq_drift= (self.fq_drift * 127 + ph_diff) / 128
             ph_acc= remainder(self.ph_acc + fq_drift)
 
+            change= math.sqrt(
+                ((self.ph_old - ant_ph_offs)**2).sum() +
+                ((self.sao_old - ant_samp_offs)**2).sum()
+            )
+
             if update:
                 self.fq_drift= fq_drift
                 self.ph_acc= ph_acc
                 self.ph_old= ant_ph_offs
+                self.sao_old= ant_samp_offs
 
             ant_ph_corr= [0] + list(ant_ph_offs + ph_acc)
+            ant_samp_corr= [0] + list(ant_samp_offs)
 
-            edge_samp_offs= list((a - b) for (a,b) in it.combinations(ant_samp_offs, 2))
+            edge_samp_offs= list((a - b) for (a,b) in it.combinations(ant_samp_corr, 2))
             edge_ph_corr= list((a - b) for (a,b) in it.combinations(ant_ph_corr, 2))
 
-            return((edge_ph_corr, edge_samp_offs))
+            return((edge_ph_corr, edge_samp_offs, change))
 
         def corrected_phase(ph, pho, sao):
-            return(remainder(ph + np.linspace(-sao, sao, len(ph)) + pho))
+            corrected= remainder(ph + np.linspace(-sao, sao, len(ph)) + pho)
+
+            corrected[:16]= 0
+            corrected[-16:]= 0
+
+            return(corrected)
 
         def test_parameters(parameters):
-            (ph_offs, edge_samp_offs)= process_spx_params(parameters)
+            (ph_offs, edge_samp_offs, change)= process_spx_params(parameters)
 
             phases= list(
                 corrected_phase(ph, pho, sao)
@@ -199,15 +233,21 @@ class AntArray(object):
                 zip(self.edges, phases, variances)
             )
 
-            match= sum(
-                max(self.paint_dist(idx, phases, variances))
-                for idx in self.paint_areas
+            focus= sum(
+                self.rate_focus(self.paint_dist(idx, phases, variances))
+                for idx in self.paint_areas[1:2]
             )
 
-            return (match - dist_limit)
+            focus*= 0
+            dist_limit*= 1
+            change*= 0
+
+            #print('{:8} {:8} {:8}'.format(focus, dist_limit, change), file=sys.stderr)
+
+            return (-focus -dist_limit -change)
 
         parameters= self.spx_opt.optimize_hop(test_parameters)
-        (ph_offs, edge_samp_offs)= process_spx_params(parameters, True)
+        (ph_offs, edge_samp_offs, change)= process_spx_params(parameters, True)
 
         phases= list(
             corrected_phase(ph, pho, sao)
@@ -219,8 +259,11 @@ class AntArray(object):
 
             array('f', canvas).tofile(sys.stdout.buffer)
 
-        for ph in phases:
-            array('f', ph).tofile(sys.stdout.buffer)
+        for (ph, edge) in zip(phases, self.edges):
+            array('f', edge.rel_wl * ph/edge.dist).tofile(sys.stdout.buffer)
+
+        #for (ph, edge) in zip(phases, self.edges):
+        #    array('f', ph).tofile(sys.stdout.buffer)
 
 antennas= [
     (0,0),
@@ -231,7 +274,7 @@ antennas= [
 
 edges= list(AntArrayEdge(*aa, *ab) for (aa, ab) in it.combinations(antennas, 2))
 
-antarr= AntArray(edges, 2048, 101e6, 103e6)
+antarr= AntArray(edges, 512, 101e6, 103e6)
 
 if __name__ == '__main__':
     while True:

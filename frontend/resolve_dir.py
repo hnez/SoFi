@@ -260,7 +260,7 @@ class AntArray(object):
             array('f', canvas).tofile(sys.stdout.buffer)
 
         for (ph, edge) in zip(phases, self.edges):
-            array('f', edge.rel_wl * ph/edge.dist).tofile(sys.stdout.buffer)
+            array('f', ph).tofile(sys.stdout.buffer)
 
         #for (ph, edge) in zip(phases, self.edges):
         #    array('f', ph).tofile(sys.stdout.buffer)

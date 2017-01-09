@@ -1,6 +1,6 @@
 backend/sofi
 backend/rf_monitor
-backend/top_block.py
+top_block.py
 \#*
 *.bin
 *.o

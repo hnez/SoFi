@@ -32,57 +32,6 @@
 
 #include "fft_thread.h"
 
-
-inline float cb_weight(float old, float cur)
-{
-  return((old * CB_WEIGHT_OLD + cur * CB_WEIGHT_CUR) / CB_WEIGHT_BOTH);
-}
-
-inline float squared(float x)
-{
-  return(x*x);
-}
-
-/**
- * When the current phase is at the boundary to rolling over
- * (+M_PI or -M_PI) and the mean is at the other boundary (-M_PI or +M_PI).
- * The mean should wander towards the boundary.
- *
- * To check which direction the mean should go this functions performs
- * the normal mean calculation and versions where the the current
- * value is shifted up/down by 2*M_PI.
- *
- * The version that creates the smallest variance wins.
- */
-inline float phase_mean(float old, float cur, float *variance)
-{
-  float pnaive= cb_weight(old, cur);
-  float ptop= cb_weight(old, cur + 2*M_PI);
-  float pbottom= cb_weight(old, cur - 2*M_PI);
-
-  float vnaive= squared(pnaive - old);
-  float vtop= squared(ptop - old);
-  float vbottom= squared(pbottom - old);
-
-  if (vnaive <= vtop && vnaive <= vbottom) {
-    *variance= vnaive;
-
-    return(pnaive);
-  }
-  else {
-    if (vtop < vbottom) {
-      *variance= vtop;
-
-      return(remainderf(ptop, 2*M_PI));
-    }
-    else {
-      *variance= vbottom;
-
-      return(remainderf(pbottom, 2*M_PI));
-    }
-  }
-}
-
 static uint64_t factorial(uint64_t x)
 {
   uint64_t pivot=1;
@@ -118,7 +67,7 @@ static bool write_flipped_fft_halves(int fd, float *samples, size_t len)
 
   if(!write_forreal(fd, top, (len/2) * sizeof(*samples)) ||
      !write_forreal(fd, bottom, (len/2) * sizeof(*samples))) {
-    
+
     fprintf(stderr, "write_flipped_fft_halves: write failed\n");
     return(false);
   }
@@ -144,22 +93,33 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
     }
   }
 
+  fftwf_complex *tmp_cplx= NULL;
+  float *tmp_real= NULL;
+
+  tmp_cplx= fftwf_alloc_complex(len_fft);
+  tmp_real= fftwf_alloc_real(len_fft);
+
+  if(!tmp_cplx || !tmp_real) {
+    fprintf(stderr, "cb_run: allocating temp buffer failed\n");
+
+    return(false);
+  }
+
   struct {
-    float *phase;
-    float *mag_sq;
+    struct fft_thread *thread;
+    struct fft_buffer *buffer;
   } inputs[num_ffts];
 
-  for (size_t i=0; i<num_ffts; i++) {
-    inputs[i].phase= fftwf_alloc_real(len_fft);
-    inputs[i].mag_sq= fftwf_alloc_real(len_fft);
+  for(size_t fi=0; fi<num_ffts; fi++) {
+    inputs[fi].thread= &ffts[fi];
+    inputs[fi].buffer= NULL;
   }
 
   struct {
     size_t input_a;
     size_t input_b;
-    float *mean_phase;
-    float *mean_var;
-    float *mean_mag_sq;
+
+    fftwf_complex *mean;
   } outputs[num_edges];
 
   for(size_t ina=0, i=0; ina<num_ffts; ina++) {
@@ -169,59 +129,70 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
       outputs[i].input_a= ina;
       outputs[i].input_b= inb;
 
-      outputs[i].mean_phase= fftwf_alloc_real(len_fft);
-      outputs[i].mean_var= fftwf_alloc_real(len_fft);
-      outputs[i].mean_mag_sq= fftwf_alloc_real(len_fft);
+      outputs[i].mean= fftwf_alloc_complex(len_fft);
 
-      memset(outputs[i].mean_phase, 0, sizeof(float) * len_fft);
-      memset(outputs[i].mean_var, 0, sizeof(float) * len_fft);
-      memset(outputs[i].mean_mag_sq, 0, sizeof(float) * len_fft);
+      if(!outputs[i].mean) {
+        fprintf(stderr, "cb_run: allocating mean buffer failed\n");
+
+        return(false);
+      }
+
+      memset(outputs[i].mean, 0, sizeof(float) * len_fft);
     }
   }
 
   for(uint64_t frame=0; ; frame++) {
     for(size_t fi=0; fi<num_ffts; fi++) {
-      struct fft_buffer *buf= NULL;
-
-      buf= ft_get_frame(&ffts[fi], frame);
-
-      volk_32fc_s32f_atan2_32f(inputs[fi].phase,
-                               (lv_32fc_t*)buf->out,
-                               1.0,
-                               len_fft);
-
-      volk_32fc_magnitude_squared_32f(inputs[fi].mag_sq,
-                                      (lv_32fc_t*)buf->out,
-                                      len_fft);
-
-      ft_release_frame(&ffts[fi], buf);
+      inputs[fi].buffer= ft_get_frame(inputs[fi].thread, frame);
     }
 
     for(size_t ei=0; ei<num_edges; ei++) {
       size_t ina= outputs[ei].input_a;
       size_t inb= outputs[ei].input_b;
 
-      for(size_t i=0; i<len_fft; i++) {
-        float phase= remainderf(inputs[ina].phase[i] - inputs[inb].phase[i], 2*M_PI);
-        float mag_sq= inputs[ina].mag_sq[i] * inputs[ina].mag_sq[i];
+      /* Calculate Phase difference between
+       * the two inputs for all frequencies */
+      volk_32fc_x2_multiply_conjugate_32fc(tmp_cplx,
+                                           inputs[ina].buffer->out,
+                                           inputs[inb].buffer->out,
+                                           len_fft);
 
-        float variance= 0;
+      /* Calculate the weigthed mean between old and new value.
+       * Using one of the inputs to add as target might be a bad idea,
+       * as it is not documented but it looks fine in the volk source. */
+      volk_32f_s32f_normalize((float *)outputs[ei].mean, CB_WEIGHT_OLD, 2*len_fft);
 
-        outputs[ei].mean_phase[i]= phase_mean(outputs[ei].mean_phase[i], phase, &variance);;
+      volk_32f_x2_add_32f((float *)outputs[ei].mean,
+                          (float *)outputs[ei].mean,
+                          (float *)tmp_cplx,
+                          2*len_fft);
 
-        outputs[ei].mean_var[i]= cb_weight(outputs[ei].mean_var[i], variance);
-        outputs[ei].mean_mag_sq[i]= cb_weight(outputs[ei].mean_mag_sq[i], mag_sq);
-      }
+      volk_32f_s32f_normalize((float *)outputs[ei].mean,
+                              1.0/(CB_WEIGHT_OLD + 1),
+                              2*len_fft);
     }
 
-    if((frame % 128) == 0) {
+    for(size_t fi=0; fi<num_ffts; fi++) {
+      ft_release_frame(inputs[fi].thread, inputs[fi].buffer);
+    }
+
+    if((frame % CB_DECIMATOR) == 0) {
       for(size_t ei=0; ei<num_edges; ei++) {
-        write_flipped_fft_halves(fd, outputs[ei].mean_phase, len_fft);
-        write_flipped_fft_halves(fd, outputs[ei].mean_var, len_fft);
-        write_flipped_fft_halves(fd, outputs[ei].mean_mag_sq, len_fft);
+        /* Calculate and output magnitudes squared */
+        volk_32fc_magnitude_squared_32f(tmp_real,
+                                        outputs[ei].mean,
+                                        len_fft);
+
+        write_flipped_fft_halves(fd, tmp_real, len_fft);
+
+        /* Calculate and output phase differences */
+        volk_32fc_s32f_atan2_32f(tmp_real,
+                                 outputs[ei].mean,
+                                 1.0,
+                                 len_fft);
+
+        write_flipped_fft_halves(fd, tmp_real, len_fft);
       }
     }
   }
-
-  return(true);
 }

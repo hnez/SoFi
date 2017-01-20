@@ -29,16 +29,16 @@ class VirtualAntennaArray(object):
         self.num_edges= len(self.distances)
 
     def simulator_mat(self, wavelength, bins):
-        rel_wl= 2 * math.pi * self.distances / wavelength
+        dc= 2 * math.pi * self.distances / wavelength
 
-        angles= np.linspace(-math.pi/2, math.pi/2, bins)
+        angles= np.linspace(-math.pi, math.pi, bins)
 
         sim_mat= np.zeros((bins, self.num_edges))
 
         for (idx, angle) in enumerate(angles):
-            rel_angles= remainder(self.angles + angle)
+            rel_angles= self.angles + angle
 
-            sim_mat[idx, :]= rel_wl * np.cos(rel_angles)
+            sim_mat[idx, :]= dc * np.sin(rel_angles)
 
         return(sim_mat)
 
@@ -136,7 +136,7 @@ class PhysicalAntennaArray(object):
             steep= 0
 
             for (ph, mag) in zip(phases, mag_sqs):
-                selector= mag > 0.5*mag.mean()
+                selector= mag <= 0.2*mag.mean()
 
                 dc_off+= (ph[selector]**2).mean()
 
@@ -160,21 +160,20 @@ class PhysicalAntennaArray(object):
         test_angles= np.linspace(-math.pi, math.pi, self.fft_len)
 
         for (idx, mat)  in self.simulations:
-            phvec= np.array(list(ph[idx] for ph in phases))
+            phvec= np.array(list(ph[idx-5:idx+5].mean() for ph in phases))
 
             vspectrum= mat.dot(phvec)
 
             array('f', vspectrum).tofile(sys.stdout.buffer)
 
 antennas= [
-    (0, 0),
+    (-8.5, -7.5),
     (-28.5, 0),
     (-28.5, -28.5),
     (0, -28.5)
 ]
 
 pois= (152, 250, 300, 402, 610, 712)
-
 
 vantarr= VirtualAntennaArray(antennas)
 physarr= PhysicalAntennaArray(vantarr, pois, 1024, 100e6, 102e6)

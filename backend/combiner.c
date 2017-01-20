@@ -137,13 +137,19 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
         return(false);
       }
 
-      memset(outputs[i].mean, 0, sizeof(float) * len_fft);
+      memset(outputs[i].mean, 0, sizeof(*outputs[i].mean) * len_fft);
     }
   }
 
   for(uint64_t frame=0; ; frame++) {
     for(size_t fi=0; fi<num_ffts; fi++) {
       inputs[fi].buffer= ft_get_frame(inputs[fi].thread, frame);
+
+      if(!inputs[fi].buffer) {
+        fprintf(stderr, "cb_run: Getting frame from fft_thread failed\n");
+
+        return(false);
+      }
     }
 
     for(size_t ei=0; ei<num_edges; ei++) {
@@ -160,7 +166,9 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
       /* Calculate the weigthed mean between old and new value.
        * Using one of the inputs to add as target might be a bad idea,
        * as it is not documented but it looks fine in the volk source. */
-      volk_32f_s32f_normalize((float *)outputs[ei].mean, CB_WEIGHT_OLD, 2*len_fft);
+      volk_32f_s32f_normalize((float *)outputs[ei].mean,
+                              1.0/CB_WEIGHT_OLD,
+                              2*len_fft);
 
       volk_32f_x2_add_32f((float *)outputs[ei].mean,
                           (float *)outputs[ei].mean,
@@ -168,12 +176,16 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
                           2*len_fft);
 
       volk_32f_s32f_normalize((float *)outputs[ei].mean,
-                              1.0/(CB_WEIGHT_OLD + 1),
+                              CB_WEIGHT_OLD+1,
                               2*len_fft);
     }
 
     for(size_t fi=0; fi<num_ffts; fi++) {
-      ft_release_frame(inputs[fi].thread, inputs[fi].buffer);
+      if(!ft_release_frame(inputs[fi].thread, inputs[fi].buffer)) {
+        fprintf(stderr, "cb_run: Relasing fft frame failed\n");
+
+        return(false);
+      }
     }
 
     if((frame % CB_DECIMATOR) == 0) {

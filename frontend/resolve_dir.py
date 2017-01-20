@@ -73,22 +73,21 @@ class PhysicalAntennaArray(object):
         self.sao_old= np.zeros(3)
 
     def read_samples(self, fd):
-        raw_sample= fd.read(3 * 4 * self.fft_len)
+        raw_sample= fd.read(2 * 4 * self.fft_len)
         np_sample= np.frombuffer(raw_sample, np.float32)
 
-        if len(np_sample) != 3*self.fft_len:
+        if len(np_sample) != 2*self.fft_len:
             raise(Exception())
 
-        phases= np_sample[:self.fft_len]
-        variances= np_sample[self.fft_len:self.fft_len*2]
-        mag_sqs= np_sample[self.fft_len*2:]
+        mag_sqs= np_sample[:self.fft_len]
+        phases= np_sample[self.fft_len:]
 
-        return((phases, variances, mag_sqs))
+        return((phases, mag_sqs))
 
     def file_step(self, fd):
         samples= list(self.read_samples(fd) for i in range(6))
 
-        (orig_phases, variances, mag_sqs)= zip(*samples)
+        (orig_phases, mag_sqs)= zip(*samples)
 
         def process_spx_params(parameters, update=False):
             ant_samp_offs= parameters[:3]
@@ -136,8 +135,8 @@ class PhysicalAntennaArray(object):
             dc_off= 0
             steep= 0
 
-            for (ph, var) in zip(phases, variances):
-                selector= var > 0.5*var.mean()
+            for (ph, mag) in zip(phases, mag_sqs):
+                selector= mag > 0.5*mag.mean()
 
                 dc_off+= (ph[selector]**2).mean()
 

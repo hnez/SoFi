@@ -105,7 +105,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>512</value>
+      <value>1024</value>
     </param>
   </block>
   <block>
@@ -183,7 +183,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(296, 184)</value>
+      <value>(464, 184)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -208,6 +208,61 @@
     <param>
       <key>num_streams</key>
       <value>12</value>
+    </param>
+    <param>
+      <key>vlen</key>
+      <value>fft_len</value>
+    </param>
+  </block>
+  <block>
+    <key>blocks_throttle</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>affinity</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(272, 348)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>blocks_throttle_0</value>
+    </param>
+    <param>
+      <key>ignoretag</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>maxoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>minoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>samples_per_second</key>
+      <value>30*12</value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>float</value>
     </param>
     <param>
       <key>vlen</key>
@@ -242,7 +297,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(496, 184)</value>
+      <value>(712, 184)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -509,11 +564,11 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>True</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(496, 376)</value>
+      <value>(744, 376)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -758,7 +813,7 @@
   </block>
   <connection>
     <source_block_id>blocks_file_descriptor_source_0</source_block_id>
-    <sink_block_id>blocks_stream_to_streams_0</sink_block_id>
+    <sink_block_id>blocks_throttle_0</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
@@ -833,5 +888,11 @@
     <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
     <source_key>9</source_key>
     <sink_key>3</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_throttle_0</source_block_id>
+    <sink_block_id>blocks_stream_to_streams_0</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
   </connection>
 </flow_graph>

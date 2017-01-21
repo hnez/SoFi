@@ -60,7 +60,7 @@ class PhysicalAntennaArray(object):
 
     def init_spx_optim(self):
         # FIXME: remove constants
-        limits_samp_off= np.array([math.pi] * 3)
+        limits_samp_off= np.array([math.pi * 10] * 3)
         limits_ph_off= np.array([math.pi] *3)
 
         limits_params= np.concatenate((limits_samp_off, limits_ph_off))
@@ -133,18 +133,23 @@ class PhysicalAntennaArray(object):
             )
 
             dc_off= 0
-            steep= 0
+            wraps= 0
 
             for (ph, mag) in zip(phases, mag_sqs):
                 selector= mag <= 0.2*mag.mean()
 
                 dc_off+= (ph[selector]**2).mean()
 
-                steep+= ((ph[1:] - ph[:-1])**2).mean()
+                is_wrapped= abs(ph[1:] - ph[:-1]) > math.pi
 
-            #print(dc_off, steep, file=sys.stderr)
+                wraps+= np.count_nonzero(is_wrapped)
 
-            return (-dc_off**0.25)# -10*steep)
+            dc_off= -dc_off**0.25
+            wraps= -wraps
+
+            print(dc_off, wraps, file=sys.stderr)
+
+            return (wraps + dc_off)
 
         parameters= self.spx_opt.optimize_hop(test_parameters)
         (ph_offs, edge_samp_offs, change)= process_spx_params(parameters, True)
@@ -167,10 +172,10 @@ class PhysicalAntennaArray(object):
             array('f', vspectrum).tofile(sys.stdout.buffer)
 
 antennas= [
-    (-8.5, -7.5),
-    (-28.5, 0),
-    (-28.5, -28.5),
-    (0, -28.5)
+    ( 0.0,   0.0),
+    (-0.353, 0.545),
+    ( 0.34,  0.545),
+    ( 0.0,  -0.664)
 ]
 
 pois= (152, 250, 300, 402, 610, 712)

@@ -41,7 +41,7 @@ static uint64_t factorial(uint64_t x)
   return(pivot);
 }
 
-static bool write_forreal(int fd, void *dat, size_t len)
+static bool write_interruptsafe(int fd, void *dat, size_t len)
 {
   for(size_t written=0; written<len;) {
     ssize_t ret= write(fd, dat, len-written);
@@ -55,18 +55,18 @@ static bool write_forreal(int fd, void *dat, size_t len)
   return(true);
 }
 
-static bool write_flipped_fft_halves(int fd, float *samples, size_t len)
+static bool write_flipped_fft_halves(int fd, fftwf_complex *samples, size_t len)
 {
   if(len%2 != 0) {
     fprintf(stderr, "write_flipped_fft_halves: got uneven input length\n");
     return(false);
   }
 
-  float *top= &samples[len/2];
-  float *bottom= &samples[0];
+  fftwf_complex *top= &samples[len/2];
+  fftwf_complex *bottom= &samples[0];
 
-  if(!write_forreal(fd, top, (len/2) * sizeof(*samples)) ||
-     !write_forreal(fd, bottom, (len/2) * sizeof(*samples))) {
+  if(!write_interruptsafe(fd, top, (len/2) * sizeof(*samples)) ||
+     !write_interruptsafe(fd, bottom, (len/2) * sizeof(*samples))) {
 
     fprintf(stderr, "write_flipped_fft_halves: write failed\n");
     return(false);
@@ -94,12 +94,10 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
   }
 
   fftwf_complex *tmp_cplx= NULL;
-  float *tmp_real= NULL;
 
   tmp_cplx= fftwf_alloc_complex(len_fft);
-  tmp_real= fftwf_alloc_real(len_fft);
 
-  if(!tmp_cplx || !tmp_real) {
+  if(!tmp_cplx) {
     fprintf(stderr, "cb_run: allocating temp buffer failed\n");
 
     return(false);
@@ -190,20 +188,7 @@ bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
 
     if((frame % CB_DECIMATOR) == 0) {
       for(size_t ei=0; ei<num_edges; ei++) {
-        /* Calculate and output magnitudes squared */
-        volk_32fc_magnitude_squared_32f(tmp_real,
-                                        outputs[ei].mean,
-                                        len_fft);
-
-        write_flipped_fft_halves(fd, tmp_real, len_fft);
-
-        /* Calculate and output phase differences */
-        volk_32fc_s32f_atan2_32f(tmp_real,
-                                 outputs[ei].mean,
-                                 1.0,
-                                 len_fft);
-
-        write_flipped_fft_halves(fd, tmp_real, len_fft);
+        write_flipped_fft_halves(fd, outputs[ei].mean, len_fft);
       }
     }
   }

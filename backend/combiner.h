@@ -21,7 +21,7 @@
 
 #include "fft_thread.h"
 
-#define CB_WEIGHT_OLD (150)
-#define CB_DECIMATOR (100)
+#define CB_WEIGHT_OLD (400)
+#define CB_DECIMATOR (163)
 
 bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts);

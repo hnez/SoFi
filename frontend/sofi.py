@@ -7,6 +7,9 @@ from scipy import signal
 import math
 import sys
 
+def remainder(x1, x2=2*math.pi):
+    return(x1 - x2*np.round(x1 / x2))
+
 class PIDController(object):
     def __init__(self, kp, ki, kd):
         self.kp= kp
@@ -114,10 +117,10 @@ class AntennaArray(object):
         return(ant_err)
 
     def calc_edge_errors(self, edge_frame):
-        side_a= np.angle(edge_frame[76:120].mean())
-        side_b= np.angle(edge_frame[340:350].mean())
-        side_c= np.angle(edge_frame[524:550].mean())
-        side_d= np.angle(edge_frame[930:940].mean())
+        side_a= edge_frame[76:120].mean()
+        side_b= edge_frame[340:350].mean()
+        side_c= edge_frame[524:550].mean()
+        side_d= edge_frame[930:940].mean()
 
         phase_error= (side_a + side_b + side_c + side_d) / 4
         sample_error= ((side_b - side_a) + (side_c - side_b) + (side_d - side_c))/3
@@ -125,13 +128,14 @@ class AntennaArray(object):
         return((-phase_error, -sample_error))
 
     def compensate_edge_errors(self, edge_frame, phase_offset, sample_offset):
-        cfunc= np.exp(1j* np.linspace(
-            phase_offset - sample_offset/2, phase_offset + sample_offset/2, self.fft_len
-        ))
+        shift_start= phase_offset - sample_offset/2
+        shift_end= phase_offset + sample_offset/2
 
-        return(edge_frame * cfunc)
+        comp= np.linspace(shift_start, shift_end, self.fft_len)
 
-    def process_edge_frameset(self, frames):
+        return(remainder(edge_frame + comp))
+
+    def process_edge_frameset(self, phases, magnitude):
         ant_phase_comps= np.fromiter((c.last for c in self.ant_phase_err_comps), np.float32)
         ant_sample_comps= np.fromiter((c.last for c in self.ant_sample_err_comps), np.float32)
 
@@ -141,22 +145,19 @@ class AntennaArray(object):
         edge_phase_errors= np.zeros(len(edge_phase_comps))
         edge_sample_errors= np.zeros(len(edge_sample_comps))
 
-        edges_properties= zip(it.count(0), frames, edge_phase_comps, edge_sample_comps)
+        edges_properties= zip(it.count(0), phases, edge_phase_comps, edge_sample_comps)
 
         for (i, edge_frame, edge_ph_comp, edge_sa_comp) in edges_properties:
             edge_frame_compensated= self.compensate_edge_errors(edge_frame, edge_ph_comp, edge_sa_comp)
 
-            if (i==0):
-                mag= abs(edge_frame_compensated)
-
-
-                self.find_peaks(mag)
-                self.find_peaks(1/mag)
-
-            compensated_raw= edge_frame_compensated.astype(np.complex64).tobytes()
+            compensated_raw= edge_frame_compensated.astype(np.float32).tobytes()
             sys.stdout.buffer.write(compensated_raw)
 
             (edge_phase_errors[i], edge_sample_errors[i])= self.calc_edge_errors(edge_frame_compensated)
+
+        mag_raw= magnitude.astype(np.float32).tobytes()
+        sys.stdout.buffer.write(mag_raw)
+
 
         ant_phase_errors= self.edge_to_ant_errors(edge_phase_errors)
         ant_sample_errors= self.edge_to_ant_errors(edge_sample_errors)
@@ -168,18 +169,18 @@ class AntennaArray(object):
             comp.update(err)
 
     def read_frameset(self, fd):
-        frameset= list()
+        frames= list()
 
-        for ei in range(self.edges_count):
-            raw_frame= fd.read(8 * self.fft_len)
-            np_frame= np.frombuffer(raw_frame, np.complex64)
+        for ei in range(self.edges_count + 1):
+            raw_frame= fd.read(4 * self.fft_len)
+            np_frame= np.frombuffer(raw_frame, np.float32)
 
             if len(np_frame) != self.fft_len:
                 raise(Exception('Failed to read frame'))
 
-            frameset.append(np_frame)
+            frames.append(np_frame)
 
-        return(frameset)
+        return((frames[:-1], frames[-1]))
 
 antennas= [
     ( 0.0,   0.0),
@@ -191,6 +192,6 @@ antennas= [
 antarr= AntennaArray(antennas, 1024, 100e6, 102e6)
 
 for frameset_num in it.count(0):
-    frameset= antarr.read_frameset(sys.stdin.buffer)
+    (phases, magnitude)= antarr.read_frameset(sys.stdin.buffer)
 
-    antarr.process_edge_frameset(frameset)
+    antarr.process_edge_frameset(phases, magnitude)

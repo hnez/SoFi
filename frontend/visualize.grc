@@ -109,264 +109,6 @@
     </param>
   </block>
   <block>
-    <key>blocks_complex_to_magphase</key>
-    <param>
-      <key>alias</key>
-      <value></value>
-    </param>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>affinity</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(416, 176)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>blocks_complex_to_magphase_0</value>
-    </param>
-    <param>
-      <key>maxoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>minoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>vlen</key>
-      <value>fft_len</value>
-    </param>
-  </block>
-  <block>
-    <key>blocks_complex_to_magphase</key>
-    <param>
-      <key>alias</key>
-      <value></value>
-    </param>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>affinity</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(416, 248)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>blocks_complex_to_magphase_0_0</value>
-    </param>
-    <param>
-      <key>maxoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>minoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>vlen</key>
-      <value>fft_len</value>
-    </param>
-  </block>
-  <block>
-    <key>blocks_complex_to_magphase</key>
-    <param>
-      <key>alias</key>
-      <value></value>
-    </param>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>affinity</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(416, 320)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>blocks_complex_to_magphase_0_1</value>
-    </param>
-    <param>
-      <key>maxoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>minoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>vlen</key>
-      <value>fft_len</value>
-    </param>
-  </block>
-  <block>
-    <key>blocks_complex_to_magphase</key>
-    <param>
-      <key>alias</key>
-      <value></value>
-    </param>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>affinity</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(416, 392)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>blocks_complex_to_magphase_0_2</value>
-    </param>
-    <param>
-      <key>maxoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>minoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>vlen</key>
-      <value>fft_len</value>
-    </param>
-  </block>
-  <block>
-    <key>blocks_complex_to_magphase</key>
-    <param>
-      <key>alias</key>
-      <value></value>
-    </param>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>affinity</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(416, 464)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>blocks_complex_to_magphase_0_3</value>
-    </param>
-    <param>
-      <key>maxoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>minoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>vlen</key>
-      <value>fft_len</value>
-    </param>
-  </block>
-  <block>
-    <key>blocks_complex_to_magphase</key>
-    <param>
-      <key>alias</key>
-      <value></value>
-    </param>
-    <param>
-      <key>comment</key>
-      <value></value>
-    </param>
-    <param>
-      <key>affinity</key>
-      <value></value>
-    </param>
-    <param>
-      <key>_enabled</key>
-      <value>True</value>
-    </param>
-    <param>
-      <key>_coordinate</key>
-      <value>(416, 544)</value>
-    </param>
-    <param>
-      <key>_rotation</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>id</key>
-      <value>blocks_complex_to_magphase_0_4</value>
-    </param>
-    <param>
-      <key>maxoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>minoutbuf</key>
-      <value>0</value>
-    </param>
-    <param>
-      <key>vlen</key>
-      <value>fft_len</value>
-    </param>
-  </block>
-  <block>
     <key>blocks_file_descriptor_source</key>
     <param>
       <key>alias</key>
@@ -390,7 +132,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(48, 260)</value>
+      <value>(48, 196)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -410,7 +152,7 @@
     </param>
     <param>
       <key>type</key>
-      <value>complex</value>
+      <value>float</value>
     </param>
     <param>
       <key>repeat</key>
@@ -422,7 +164,7 @@
     </param>
   </block>
   <block>
-    <key>blocks_stream_to_streams</key>
+    <key>blocks_nlog10_ff</key>
     <param>
       <key>alias</key>
       <value></value>
@@ -441,7 +183,58 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(64, 432)</value>
+      <value>(688, 588)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>blocks_nlog10_ff_0</value>
+    </param>
+    <param>
+      <key>maxoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>minoutbuf</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>vlen</key>
+      <value>fft_len</value>
+    </param>
+    <param>
+      <key>k</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>n</key>
+      <value>1</value>
+    </param>
+  </block>
+  <block>
+    <key>blocks_stream_to_streams</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>affinity</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>1</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(424, 296)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -453,7 +246,7 @@
     </param>
     <param>
       <key>type</key>
-      <value>complex</value>
+      <value>float</value>
     </param>
     <param>
       <key>maxoutbuf</key>
@@ -465,7 +258,7 @@
     </param>
     <param>
       <key>num_streams</key>
-      <value>6</value>
+      <value>6+1</value>
     </param>
     <param>
       <key>vlen</key>
@@ -488,7 +281,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>True</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -516,11 +309,11 @@
     </param>
     <param>
       <key>samples_per_second</key>
-      <value>24*6</value>
+      <value>30*7</value>
     </param>
     <param>
       <key>type</key>
-      <value>complex</value>
+      <value>float</value>
     </param>
     <param>
       <key>vlen</key>
@@ -551,11 +344,11 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>True</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(1072, 24)</value>
+      <value>(752, 296)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -826,7 +619,7 @@
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(920, 680)</value>
+      <value>(912, 540)</value>
     </param>
     <param>
       <key>gui_hint</key>
@@ -1014,11 +807,11 @@
     </param>
     <param>
       <key>name</key>
-      <value>"Magnitude"</value>
+      <value>"Phase"</value>
     </param>
     <param>
       <key>nconnections</key>
-      <value>6</value>
+      <value>1</value>
     </param>
     <param>
       <key>ref_level</key>
@@ -1054,7 +847,7 @@
     </param>
     <param>
       <key>ymax</key>
-      <value>200</value>
+      <value>6</value>
     </param>
     <param>
       <key>ymin</key>
@@ -1070,117 +863,57 @@
     </param>
   </block>
   <connection>
-    <source_block_id>blocks_complex_to_magphase_0</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
-    <source_key>0</source_key>
-    <sink_key>0</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
-    <source_key>1</source_key>
-    <sink_key>0</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_0</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
-    <source_key>0</source_key>
-    <sink_key>1</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_0</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
-    <source_key>1</source_key>
-    <sink_key>1</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_1</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
-    <source_key>0</source_key>
-    <sink_key>2</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_1</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
-    <source_key>1</source_key>
-    <sink_key>2</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_2</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
-    <source_key>0</source_key>
-    <sink_key>3</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_2</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
-    <source_key>1</source_key>
-    <sink_key>3</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_3</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
-    <source_key>0</source_key>
-    <sink_key>4</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_3</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
-    <source_key>1</source_key>
-    <sink_key>4</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_4</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
-    <source_key>0</source_key>
-    <sink_key>5</sink_key>
-  </connection>
-  <connection>
-    <source_block_id>blocks_complex_to_magphase_0_4</source_block_id>
-    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
-    <source_key>1</source_key>
-    <sink_key>5</sink_key>
-  </connection>
-  <connection>
     <source_block_id>blocks_file_descriptor_source_0</source_block_id>
     <sink_block_id>blocks_throttle_0</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
-    <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_complex_to_magphase_0</sink_block_id>
+    <source_block_id>blocks_nlog10_ff_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0_0</sink_block_id>
     <source_key>0</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_complex_to_magphase_0_0</sink_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
     <source_key>1</source_key>
-    <sink_key>0</sink_key>
+    <sink_key>1</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_complex_to_magphase_0_1</sink_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
     <source_key>2</source_key>
-    <sink_key>0</sink_key>
+    <sink_key>2</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_complex_to_magphase_0_2</sink_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
     <source_key>3</source_key>
-    <sink_key>0</sink_key>
+    <sink_key>3</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_complex_to_magphase_0_3</sink_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
     <source_key>4</source_key>
-    <sink_key>0</sink_key>
+    <sink_key>4</sink_key>
   </connection>
   <connection>
     <source_block_id>blocks_stream_to_streams_0</source_block_id>
-    <sink_block_id>blocks_complex_to_magphase_0_4</sink_block_id>
+    <sink_block_id>qtgui_vector_sink_f_0</sink_block_id>
     <source_key>5</source_key>
+    <sink_key>5</sink_key>
+  </connection>
+  <connection>
+    <source_block_id>blocks_stream_to_streams_0</source_block_id>
+    <sink_block_id>blocks_nlog10_ff_0</sink_block_id>
+    <source_key>6</source_key>
     <sink_key>0</sink_key>
   </connection>
   <connection>

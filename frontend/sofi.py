@@ -58,12 +58,36 @@ class AntennaArray(object):
         self.effect_mat= self.gen_effect_mat(self.edges_count, self.antenna_count)
         self.inv_effect_mat= self.gen_inv_effect_mat(self.effect_mat)
 
-    def find_peaks(self, magnitude):
+        self.noise_points= list()
+
+    def find_peaks(self, magnitudes):
         testwidths= np.linspace(14, 18, 5)
 
-        peaks= signal.find_peaks_cwt(magnitude, testwidths)
+        peaks= signal.find_peaks_cwt(magnitudes, testwidths)
 
-        print(peaks, file=sys.stderr)
+        # TODO fix corner cases
+        peaks= list(p for p in peaks if (p>50 and p<950))
+
+        return(peaks)
+
+    def expand_peaks(self, peaks, magnitudes):
+        expanded= list()
+
+        for peak in peaks:
+            thr_mag= 0.5 * magnitudes[peak]
+
+            plow= peak
+            phigh= peak
+
+            while magnitudes[plow] > thr_mag and plow > 0:
+                plow-= 1
+
+            while magnitudes[phigh] > thr_mag and phigh < len(magnitudes):
+                phigh+= 1
+
+            expanded.append((plow, phigh))
+
+        return(expanded)
 
     def gen_effect_mat(self, edges_count, antenna_count):
         effect_mat= np.zeros((edges_count, antenna_count))
@@ -117,15 +141,21 @@ class AntennaArray(object):
         return(ant_err)
 
     def calc_edge_errors(self, edge_frame):
-        side_a= edge_frame[76:120].mean()
-        side_b= edge_frame[340:350].mean()
-        side_c= edge_frame[524:550].mean()
-        side_d= edge_frame[930:940].mean()
+        checkpoints= np.fromiter(
+            (edge_frame[a:b].mean() for (a, b) in self.noise_points if a<b),
+            np.float32
+        )
 
-        phase_error= (side_a + side_b + side_c + side_d) / 4
-        sample_error= ((side_b - side_a) + (side_c - side_b) + (side_d - side_c))/3
+        if len(checkpoints) < 3:
+            return((0,0))
 
-        return((-phase_error, -sample_error))
+        phase_error= checkpoints.mean()
+
+        pairs= zip(checkpoints[:-1], checkpoints[1:])
+
+        sample_error= sum(b-a for (a, b) in pairs) / len(checkpoints)
+
+        return((-phase_error, -3*sample_error))
 
     def compensate_edge_errors(self, edge_frame, phase_offset, sample_offset):
         shift_start= phase_offset - sample_offset/2
@@ -158,7 +188,6 @@ class AntennaArray(object):
         mag_raw= magnitude.astype(np.float32).tobytes()
         sys.stdout.buffer.write(mag_raw)
 
-
         ant_phase_errors= self.edge_to_ant_errors(edge_phase_errors)
         ant_sample_errors= self.edge_to_ant_errors(edge_sample_errors)
 
@@ -182,6 +211,13 @@ class AntennaArray(object):
 
         return((frames[:-1], frames[-1]))
 
+    def find_noisepoints(self, magnitudes):
+        inv_mag= 1/(magnitudes + 0.001)
+
+        peaks= self.find_peaks(inv_mag)
+
+        self.noise_points= self.expand_peaks(peaks, inv_mag)
+
 antennas= [
     ( 0.0,   0.0),
     (-0.353, 0.545),
@@ -195,3 +231,6 @@ for frameset_num in it.count(0):
     (phases, magnitude)= antarr.read_frameset(sys.stdin.buffer)
 
     antarr.process_edge_frameset(phases, magnitude)
+
+    if (frameset_num % 100) == 0:
+        antarr.find_noisepoints(magnitude)

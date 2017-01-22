@@ -3,6 +3,7 @@
 from array import array
 import itertools as it
 import numpy as np
+from scipy import signal
 import math
 import sys
 
@@ -53,6 +54,13 @@ class AntennaArray(object):
 
         self.effect_mat= self.gen_effect_mat(self.edges_count, self.antenna_count)
         self.inv_effect_mat= self.gen_inv_effect_mat(self.effect_mat)
+
+    def find_peaks(self, magnitude):
+        testwidths= np.linspace(14, 18, 5)
+
+        peaks= signal.find_peaks_cwt(magnitude, testwidths)
+
+        print(peaks, file=sys.stderr)
 
     def gen_effect_mat(self, edges_count, antenna_count):
         effect_mat= np.zeros((edges_count, antenna_count))
@@ -123,7 +131,6 @@ class AntennaArray(object):
 
         return(edge_frame * cfunc)
 
-
     def process_edge_frameset(self, frames):
         ant_phase_comps= np.fromiter((c.last for c in self.ant_phase_err_comps), np.float32)
         ant_sample_comps= np.fromiter((c.last for c in self.ant_sample_err_comps), np.float32)
@@ -138,6 +145,13 @@ class AntennaArray(object):
 
         for (i, edge_frame, edge_ph_comp, edge_sa_comp) in edges_properties:
             edge_frame_compensated= self.compensate_edge_errors(edge_frame, edge_ph_comp, edge_sa_comp)
+
+            if (i==0):
+                mag= abs(edge_frame_compensated)
+
+
+                self.find_peaks(mag)
+                self.find_peaks(1/mag)
 
             compensated_raw= edge_frame_compensated.astype(np.complex64).tobytes()
             sys.stdout.buffer.write(compensated_raw)

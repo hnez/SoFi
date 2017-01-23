@@ -45,6 +45,10 @@ class AntennaArray(object):
         self.antenna_count= len(antennas)
         self.edges_count= math.factorial(self.antenna_count - 1)
 
+        # Initilize the per antenna offset compensation PID controllers.
+        # The kp, ki, kd were determined by guessing and
+        # looking at the controller behavior.
+        # I guess they could use some optimization
         self.ant_phase_err_comps= list(
             PIDController(0.40, 0.6, 0.03)
             for ant in antennas
@@ -55,9 +59,18 @@ class AntennaArray(object):
             for ant in antennas
         )
 
+        # Matricies that describe the effect of
+        # Taking the phase differeces between antennas
+        # to get from antenna->edges. (effect_mat)
+        # And a somewhat inverse matrix that
+        # describes the edges->antenna way.
         self.effect_mat= self.gen_effect_mat(self.edges_count, self.antenna_count)
         self.inv_effect_mat= self.gen_inv_effect_mat(self.effect_mat)
 
+        # These points will be used to compensate
+        # offsets between the receivers.
+        # Each point will be a 2-tuple that
+        # stores the start and end in the frame
         self.noise_points= list()
 
     def find_peaks(self, magnitudes):
@@ -149,6 +162,8 @@ class AntennaArray(object):
         if len(noise_point_vals) < 3:
             return((0,0))
 
+        # The phase error is the mena offset of the
+        # phases from zero
         phase_error= noise_point_vals.mean()
 
         noise_point_mids= np.fromiter(
@@ -158,11 +173,8 @@ class AntennaArray(object):
 
         sample_err_weights= noise_point_mids/self.len_fft - 0.5
 
-        sample_error= sum(
-            val * weight
-            for (val, weight)
-            in zip(noise_point_vals, sample_err_weights)
-        ) / len(noise_point_val)
+        # The sample error is the slope of the phases
+        sample_error= (noise_point_vals * sample_err_weights).mean()
 
         return((-phase_error, -sample_error))
 
@@ -175,31 +187,48 @@ class AntennaArray(object):
         return(remainder(edge_frame + comp))
 
     def process_edge_frameset(self, phases, magnitude):
+        # Take the per antenna compensation factors
+        # that were calculated in the previous frames
         ant_phase_comps= np.fromiter((c.last for c in self.ant_phase_err_comps), np.float32)
         ant_sample_comps= np.fromiter((c.last for c in self.ant_sample_err_comps), np.float32)
 
+        # Calculate the per edge compensation factors
+        # from the per antenna factors
         edge_phase_comps= self.ant_to_edge_errors(ant_phase_comps)
         edge_sample_comps= self.ant_to_edge_errors(ant_sample_comps)
 
+        # These Arrays will be used to store
+        # the errors in the current frame
         edge_phase_errors= np.zeros(len(edge_phase_comps))
         edge_sample_errors= np.zeros(len(edge_sample_comps))
 
+        # Zip together all the parameters tha will be needed
+        # in the per edge loop
         edges_properties= zip(it.count(0), phases, edge_phase_comps, edge_sample_comps)
 
         for (i, edge_frame, edge_ph_comp, edge_sa_comp) in edges_properties:
             edge_frame_compensated= self.compensate_edge_errors(edge_frame, edge_ph_comp, edge_sa_comp)
 
+            # Output the frame with the errors compensated
+            # according to the current guess
             compensated_raw= edge_frame_compensated.astype(np.float32).tobytes()
             sys.stdout.buffer.write(compensated_raw)
 
+            # Calculate and store the current errors
+            # For later analysis
             (edge_phase_errors[i], edge_sample_errors[i])= self.calc_edge_errors(edge_frame_compensated)
 
+        # Output the current magnitude as is
         mag_raw= magnitude.astype(np.float32).tobytes()
         sys.stdout.buffer.write(mag_raw)
 
+        # Determine the per antenna errors from the
+        # per edge errors. This uses a Matrix that
+        # inverts the effect of calculating the phase differences
         ant_phase_errors= self.edge_to_ant_errors(edge_phase_errors)
         ant_sample_errors= self.edge_to_ant_errors(edge_sample_errors)
 
+        # Update the PID controllers
         for (comp, err) in zip(self.ant_phase_err_comps, ant_phase_errors):
             comp.update(err)
 

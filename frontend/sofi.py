@@ -141,21 +141,30 @@ class AntennaArray(object):
         return(ant_err)
 
     def calc_edge_errors(self, edge_frame):
-        checkpoints= np.fromiter(
+        noise_point_vals= np.fromiter(
             (edge_frame[a:b].mean() for (a, b) in self.noise_points if a<b),
             np.float32
         )
 
-        if len(checkpoints) < 3:
+        if len(noise_point_vals) < 3:
             return((0,0))
 
-        phase_error= checkpoints.mean()
+        phase_error= noise_point_vals.mean()
 
-        pairs= zip(checkpoints[:-1], checkpoints[1:])
+        noise_point_mids= np.fromiter(
+            ((a+b)/2 for (a, b) in self.noise_points if a<b),
+            np.float32
+        )
 
-        sample_error= sum(b-a for (a, b) in pairs) / len(checkpoints)
+        sample_err_weights= noise_point_mids/self.len_fft - 0.5
 
-        return((-phase_error, -3*sample_error))
+        sample_error= sum(
+            val * weight
+            for (val, weight)
+            in zip(noise_point_vals, sample_err_weights)
+        ) / len(noise_point_val)
+
+        return((-phase_error, -sample_error))
 
     def compensate_edge_errors(self, edge_frame, phase_offset, sample_offset):
         shift_start= phase_offset - sample_offset/2

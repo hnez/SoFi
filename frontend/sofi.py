@@ -73,13 +73,19 @@ class AntennaArray(object):
         # stores the start and end in the frame
         self.noise_points= list()
 
+        self.active_point_range= range(64, fft_len-256)
+
     def find_peaks(self, magnitudes):
         testwidths= np.linspace(14, 18, 5)
 
         peaks= signal.find_peaks_cwt(magnitudes, testwidths)
 
         # TODO fix corner cases
-        peaks= list(p for p in peaks if (p>50 and p<950))
+        peaks= list(
+            p
+            for p in peaks
+            if p in self.active_point_range
+        )
 
         return(peaks)
 
@@ -92,10 +98,10 @@ class AntennaArray(object):
             plow= peak
             phigh= peak
 
-            while magnitudes[plow] > thr_mag and plow > 0:
+            while magnitudes[plow] > thr_mag and plow in self.active_point_range:
                 plow-= 1
 
-            while magnitudes[phigh] > thr_mag and phigh < len(magnitudes):
+            while magnitudes[phigh] > thr_mag and phigh in self.active_point_range:
                 phigh+= 1
 
             expanded.append((plow, phigh))
@@ -166,15 +172,11 @@ class AntennaArray(object):
         # phases from zero
         phase_error= noise_point_vals.mean()
 
-        noise_point_mids= np.fromiter(
-            ((a+b)/2 for (a, b) in self.noise_points if a<b),
-            np.float32
-        )
-
-        sample_err_weights= noise_point_mids/self.len_fft - 0.5
-
-        # The sample error is the slope of the phases
-        sample_error= (noise_point_vals * sample_err_weights).mean()
+        sample_error= sum(
+            (bv - av)
+            for (av, bv)
+            in zip(noise_point_vals[:-1], noise_point_vals[1:])
+        ) / (len(noise_point_vals) - 1)
 
         return((-phase_error, -sample_error))
 
@@ -263,12 +265,19 @@ antennas= [
     ( 0.0,  -0.664)
 ]
 
-antarr= AntennaArray(antennas, 1024, 100e6, 102e6)
+antarr= AntennaArray(antennas, 1024, 99e6, 101e6)
 
 for frameset_num in it.count(0):
     (phases, magnitude)= antarr.read_frameset(sys.stdin.buffer)
 
     antarr.process_edge_frameset(phases, magnitude)
 
-    if (frameset_num % 100) == 0:
+    if (frameset_num % 100) == 10:
         antarr.find_noisepoints(magnitude)
+
+        print('Noisepoints:', file=sys.stderr)
+        for (nps, npe) in antarr.noise_points:
+            print('{}MHz - {}MHz'.format(
+                antarr.frequencies[nps] / 1e6,
+                antarr.frequencies[npe] / 1e6
+            ), file=sys.stderr)

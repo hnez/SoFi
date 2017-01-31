@@ -36,12 +36,14 @@ class PIDController(object):
 class AntennaArray(object):
     speed_of_light= 299792458.0
 
-    def __init__(self, antennas, fft_len, fq_low, fq_high):
+    def __init__(self, antennas, fft_len, dir_len, fq_low, fq_high):
         self.fft_len= fft_len
+        self.dir_len= dir_len
 
         self.frequencies= np.linspace(fq_low, fq_high, self.fft_len)
         self.wavelengths= self.speed_of_light/self.frequencies
 
+        self.antennas= antennas
         self.antenna_count= len(antennas)
         self.edges_count= math.factorial(self.antenna_count - 1)
 
@@ -73,7 +75,67 @@ class AntennaArray(object):
         # stores the start and end in the frame
         self.noise_points= list()
 
+        self.signal_points= list()
+
+        self.position_matrix_cache= list()
+
         self.active_point_range= range(64, fft_len-256)
+
+    def gen_position_matrix(self, wavelength):
+        edge_dxy= list(
+            (bx-ax, by-ay)
+            for ((ax, ay), (bx, by))
+            in it.combinations(self.antennas, 2)
+        )
+
+        edge_distances= np.fromiter(
+            (dx*dx + dy*dy for (dx, dy) in edge_dxy),
+            np.float64
+        )
+
+        edge_angles=  np.fromiter(
+            (math.atan2(dy, dx) for (dx, dy) in edge_dxy),
+            np.float64
+        )
+
+        rel_wl= 2 * math.pi * edge_distances / wavelength
+
+        test_angles= np.linspace(-math.pi, math.pi, self.dir_len)
+
+        pos_mat= np.zeros((self.dir_len, self.edges_count))
+
+        for (idx, test_angle) in enumerate(test_angles):
+            rel_angles= edge_angles + test_angle
+
+            pos_mat[idx, :]= rel_wl * np.sin(rel_angles)
+
+        return(pos_mat)
+
+    def get_position_matrix(self, wl_start, wl_end):
+        wl_mid= (wl_start + wl_end)/2
+
+        for (wls, wle, pmat) in self.position_matrix_cache:
+            if wl_mid >= wls and wl_mid <= wle:
+                return(pmat)
+
+        pmat= self.gen_position_matrix(wl_mid)
+
+        self.position_matrix_cache.append((wl_start, wl_end, pmat))
+
+        return(pmat)
+
+    def get_direction_info(self, phases, idx_start, idx_end):
+        phase_vector= np.fromiter(
+            (ph[idx_start:idx_end].mean() for ph in phases),
+            np.float64
+        )
+
+        wl_start= self.wavelengths[idx_start]
+        wl_end= self.wavelengths[idx_end]
+
+        pmat= self.get_position_matrix(wl_start, wl_end)
+
+        return(pmat @ phase_vector)
 
     def find_peaks(self, magnitudes):
         testwidths= np.linspace(14, 18, 5)
@@ -208,17 +270,25 @@ class AntennaArray(object):
         # in the per edge loop
         edges_properties= zip(it.count(0), phases, edge_phase_comps, edge_sample_comps)
 
+        compensated_phases= list()
+
         for (i, edge_frame, edge_ph_comp, edge_sa_comp) in edges_properties:
             edge_frame_compensated= self.compensate_edge_errors(edge_frame, edge_ph_comp, edge_sa_comp)
 
-            # Output the frame with the errors compensated
-            # according to the current guess
-            compensated_raw= edge_frame_compensated.astype(np.float32).tobytes()
-            sys.stdout.buffer.write(compensated_raw)
+            efc_raw= edge_frame_compensated.astype(np.float32).tobytes()
+            sys.stdout.buffer.write(efc_raw)
+
+            compensated_phases.append(edge_frame_compensated)
 
             # Calculate and store the current errors
             # For later analysis
             (edge_phase_errors[i], edge_sample_errors[i])= self.calc_edge_errors(edge_frame_compensated)
+
+
+        for (st, en) in ((101, 104), (250, 253), (240, 260), (381, 429), (889, 941), (744, 784)):
+            dir_info= self.get_direction_info(compensated_phases, st, en)
+            dir_raw= dir_info.astype(np.float32).tobytes()
+            sys.stdout.buffer.write(dir_raw)
 
         # Output the current magnitude as is
         mag_raw= magnitude.astype(np.float32).tobytes()
@@ -251,21 +321,30 @@ class AntennaArray(object):
 
         return((frames[:-1], frames[-1]))
 
+    def find_signalpoints(self, magnitudes):
+        peaks= self.find_peaks(magnitudes)
+
+        self.signal_points= self.expand_peaks(peaks, magnitudes)
+
     def find_noisepoints(self, magnitudes):
         inv_mag= 1/(magnitudes + 0.001)
 
         peaks= self.find_peaks(inv_mag)
 
-        self.noise_points= self.expand_peaks(peaks, inv_mag)
+        new_points= self.expand_peaks(peaks, inv_mag)
+
+        if len(new_points) >=3:
+            self.noise_points= new_points
+
 
 antennas= [
     ( 0.0,   0.0),
-    (-0.353, 0.545),
-    ( 0.34,  0.545),
-    ( 0.0,  -0.664)
+    ( 0.0,   0.46),
+    ( 0.67,  0.46),
+    ( 0.67,  0.0)
 ]
 
-antarr= AntennaArray(antennas, 1024, 99e6, 101e6)
+antarr= AntennaArray(antennas, 1024, 1024, 99e6, 101e6)
 
 for frameset_num in it.count(0):
     (phases, magnitude)= antarr.read_frameset(sys.stdin.buffer)
@@ -280,4 +359,14 @@ for frameset_num in it.count(0):
             print('{}MHz - {}MHz'.format(
                 antarr.frequencies[nps] / 1e6,
                 antarr.frequencies[npe] / 1e6
+            ), file=sys.stderr)
+
+
+        antarr.find_signalpoints(magnitude)
+
+        print('Signalpoints:', file=sys.stderr)
+        for (nps, npe) in antarr.signal_points:
+            print('{} - {}'.format(
+                nps,
+                npe
             ), file=sys.stderr)

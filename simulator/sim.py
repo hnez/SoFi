@@ -89,9 +89,14 @@ def AntennaArray(senders, antennas):
 
     return(blocks.multiply_matrix_cc(transfer, gr.TPP_DONT))
 
-class Simulator(gr.top_block):
+class Simulator(gr.hier_block2):
     def __init__(self, sample_rate, center_freq, senders, antennas, noise_common, noise_indie):
-        gr.top_block.__init__(self)
+        gr.hier_block2.__init__(
+            self,
+            "Simulatate the received signals",
+            gr.io_signature(0, 0, 0),
+            gr.io_signature(len(antennas), len(antennas), gr.sizeof_gr_complex)
+        )
 
         send_sims= list(
             Sender(sample_rate, freq - center_freq, 0.5)
@@ -103,16 +108,56 @@ class Simulator(gr.top_block):
         for (si, sim) in enumerate(send_sims):
             self.connect(sim, (ant_array, si))
 
-        sinks= list(
-            blocks.file_sink(gr.sizeof_gr_complex*1, 'antenna_{}.bin'.format(ai), False)
-            for (ai, ant) in enumerate(antennas)
+        awgn= CommonAWGN(len(antennas), noise_common, noise_indie)
+
+        for (ai, ant) in enumerate(antennas):
+            self.connect((ant_array, ai), (awgn, ai))
+            self.connect((awgn, ai), (self, ai))
+
+class Packer(gr.hier_block2):
+    def __init__(self, antennas):
+        n_ant= len(antennas)
+
+        gr.hier_block2.__init__(
+            self,
+            "Pack for Backend",
+            gr.io_signature(n_ant, n_ant, gr.sizeof_gr_complex),
+            gr.io_signature(1, 1, gr.sizeof_char*65536)
         )
 
-        awgn= CommonAWGN(len(sinks), noise_common, noise_indie)
+        combine= blocks.interleave(gr.sizeof_char*65536, 1)
 
-        for (ai, sink) in enumerate(sinks):
-            self.connect((ant_array, ai), (awgn, ai))
-            self.connect((awgn, ai), sink)
+        for (ai, ant) in enumerate(antennas):
+            agc= analog.agc_cc(1e-6, 100.0, 100.0)
+            self.connect((self, ai), agc)
+
+            to_real= blocks.complex_to_real(1)
+            to_cplx= blocks.complex_to_imag(1)
+
+            interleaver= blocks.interleave(gr.sizeof_float*1, 1)
+            self.connect(agc, to_real, (interleaver, 0))
+            self.connect(agc, to_cplx, (interleaver, 1))
+
+            center= blocks.add_const_vff((127, ))
+            convert= blocks.float_to_uchar()
+            vectorize= blocks.stream_to_vector(gr.sizeof_char*1, 65536)
+
+            self.connect(interleaver, center, convert, vectorize, (combine, ai))
+
+        self.connect(combine, self)
+
+class TopBlock(gr.top_block):
+    def __init__(self, sample_rate, center_freq, senders, antennas, noise_common, noise_indie):
+        gr.top_block.__init__(self, "Top Block")
+
+        sim= Simulator(sample_rate, center_freq, senders, antennas, noise_common, noise_indie)
+        pack= Packer(antennas)
+        sink= blocks.file_descriptor_sink(gr.sizeof_char*65536, 1)
+
+        for (ai, ant) in enumerate(antennas):
+            self.connect((sim, ai), (pack, ai))
+
+        self.connect(pack, sink)
 
 senders= (
     ( 10e3,     0, 100.25e6, 0.9),
@@ -128,6 +173,6 @@ antennas= (
     (-0.5,  0.5)
 )
 
-sim= Simulator(2e6, 100e6, senders, antennas, 0.1, 0.01)
+top= TopBlock(2e6, 100e6, senders, antennas, 0.1, 0.01)
 
-sim.run()
+top.run()

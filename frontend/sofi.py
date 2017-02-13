@@ -73,7 +73,8 @@ class AntennaArray(object):
         # offsets between the receivers.
         # Each point will be a 2-tuple that
         # stores the start and end in the frame
-        self.noise_points= list()
+        self.noise_points= [(150, 220), (280, 352), (403, 490), (547, 619),
+                            (662, 750), (790, 976)]
 
         self.signal_points= list()
 
@@ -285,7 +286,7 @@ class AntennaArray(object):
             (edge_phase_errors[i], edge_sample_errors[i])= self.calc_edge_errors(edge_frame_compensated)
 
 
-        for (st, en) in ((101, 104), (250, 253), (240, 260), (381, 429), (889, 941), (744, 784)):
+        for (st, en) in ((120, 134), (251, 261), (380, 388), (507, 517), (635, 645), (760, 770)):
             dir_info= self.get_direction_info(compensated_phases, st, en)
             dir_raw= dir_info.astype(np.float32).tobytes()
             sys.stdout.buffer.write(dir_raw)
@@ -336,15 +337,14 @@ class AntennaArray(object):
         if len(new_points) >=3:
             self.noise_points= new_points
 
-
 antennas= [
-    ( 0.0,   0.0),
-    ( 0.0,   0.46),
-    ( 0.67,  0.46),
-    ( 0.67,  0.0)
+    ( 0.0,  0.0),
+    ( 0.0,  0.75),
+    (-0.5, -0.5),
+    ( 0.5, -0.5)
 ]
 
-antarr= AntennaArray(antennas, 1024, 1024, 99e6, 101e6)
+antarr= AntennaArray(antennas, 1024, 1024, 99.0, 101.0)
 
 for frameset_num in it.count(0):
     (phases, magnitude)= antarr.read_frameset(sys.stdin.buffer)

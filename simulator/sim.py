@@ -32,7 +32,7 @@ class Sender(gr.hier_block2):
 
         lpfilter= grfilter.fir_filter_ccf(
             1,
-            grfilter.firdes.low_pass(1, sample_rate, 10e3, 3e3, grfilter.firdes.WIN_HAMMING, 6.76)
+            grfilter.firdes.low_pass(1, sample_rate, 30e3, 20e3, grfilter.firdes.WIN_HAMMING, 6.76)
         )
 
         lo_signal= analog.sig_source_c(
@@ -122,10 +122,8 @@ class Packer(gr.hier_block2):
             self,
             "Pack for Backend",
             gr.io_signature(n_ant, n_ant, gr.sizeof_gr_complex),
-            gr.io_signature(1, 1, gr.sizeof_char*65536)
+            gr.io_signature(n_ant, n_ant, gr.sizeof_char)
         )
-
-        combine= blocks.interleave(gr.sizeof_char*65536, 1)
 
         for (ai, ant) in enumerate(antennas):
             agc= analog.agc_cc(1e-6, 100.0, 100.0)
@@ -140,11 +138,8 @@ class Packer(gr.hier_block2):
 
             center= blocks.add_const_vff((127, ))
             convert= blocks.float_to_uchar()
-            vectorize= blocks.stream_to_vector(gr.sizeof_char*1, 65536)
 
-            self.connect(interleaver, center, convert, vectorize, (combine, ai))
-
-        self.connect(combine, self)
+            self.connect(interleaver, center, convert, (self, ai))
 
 class TopBlock(gr.top_block):
     def __init__(self, sample_rate, center_freq, senders, antennas, noise_common, noise_indie):
@@ -152,27 +147,35 @@ class TopBlock(gr.top_block):
 
         sim= Simulator(sample_rate, center_freq, senders, antennas, noise_common, noise_indie)
         pack= Packer(antennas)
-        sink= blocks.file_descriptor_sink(gr.sizeof_char*65536, 1)
 
         for (ai, ant) in enumerate(antennas):
             self.connect((sim, ai), (pack, ai))
 
-        self.connect(pack, sink)
+            sink= blocks.file_sink(
+                gr.sizeof_char,
+                'swradio{}'.format(ai),
+                False)
 
+            self.connect((pack, ai), sink)
+            
 senders= (
-    ( 10e3,     0, 100.25e6, 0.9),
-    (    0,  10e3,  99.75e6, 0.6),
-    (-10e3,     0,  100.5e6, 0.3),
-    (    0, -10e3,   99.5e6, 0.4),
+    ( 10e3,     0,  99.25e6, 0.025),
+    (    0,  10e3,  99.50e6, 0.05),
+    
+    (-10e3,     0,  99.75e6, 0.1),
+    (    0, -10e3, 100.00e6, 0.2),
+    
+    (-10e3, -10e3,  100.25e6, 0.4),
+    ( 10e3, -10e3,  100.50e6, 0.9),
 )
 
 antennas= (
-    ( 0.5,  0.5),
-    ( 0.5, -0.5),
+    ( 0.0,  0.0),
+    ( 0.0,  0.75),
     (-0.5, -0.5),
-    (-0.5,  0.5)
+    ( 0.5, -0.5)
 )
 
-top= TopBlock(2e6, 100e6, senders, antennas, 0.1, 0.01)
+top= TopBlock(2e6, 100e6, senders, antennas, 0.4, 0.3)
 
 top.run()

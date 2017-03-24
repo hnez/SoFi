@@ -335,7 +335,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -606,7 +606,7 @@
     </param>
     <param>
       <key>update_time</key>
-      <value>0</value>
+      <value>0.1</value>
     </param>
     <param>
       <key>vlen</key>
@@ -877,7 +877,7 @@
     </param>
     <param>
       <key>update_time</key>
-      <value>0</value>
+      <value>0.1</value>
     </param>
     <param>
       <key>vlen</key>
@@ -1148,7 +1148,7 @@
     </param>
     <param>
       <key>update_time</key>
-      <value>0</value>
+      <value>0.1</value>
     </param>
     <param>
       <key>vlen</key>
@@ -1187,6 +1187,12 @@
       <value>""</value>
     </param>
   </block>
+  <connection>
+    <source_block_id>blocks_file_descriptor_source_0</source_block_id>
+    <sink_block_id>blocks_stream_to_streams_0</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
+  </connection>
   <connection>
     <source_block_id>blocks_file_descriptor_source_0</source_block_id>
     <sink_block_id>blocks_throttle_0</sink_block_id>

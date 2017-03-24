@@ -1,8 +1,8 @@
-backend/sofi
 backend/rf_monitor
 top_block.py
 \#*
 *.bin
+*.so
 *.o
 *~
 __pycache__

@@ -41,176 +41,153 @@ static uint64_t factorial(uint64_t x)
   return(pivot);
 }
 
-static bool write_interruptsafe(int fd, void *dat, size_t len)
+bool cb_init(struct combiner *cb, struct fft_thread *ffts, size_t num_ffts)
 {
-  for(size_t written=0; written<len;) {
-    ssize_t ret= write(fd, dat, len-written);
-
-    if(ret<0) return(false);
-
-    dat=&((uint8_t *)dat)[ret];
-    written+=ret;
-  }
-
-  return(true);
-}
-
-static bool write_flipped_fft_halves(int fd, float *samples, size_t len)
-{
-  if(len%2 != 0) {
-    fprintf(stderr, "write_flipped_fft_halves: got uneven input length\n");
-    return(false);
-  }
-
-  float *top= &samples[len/2];
-  float *bottom= &samples[0];
-
-  if(!write_interruptsafe(fd, top, (len/2) * sizeof(*samples)) ||
-     !write_interruptsafe(fd, bottom, (len/2) * sizeof(*samples))) {
-
-    fprintf(stderr, "write_flipped_fft_halves: write failed\n");
-    return(false);
-  }
-
-  return(true);
-}
-
-bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts)
-{
-  if (!ffts || !num_ffts) {
-    fprintf(stderr, "cb_run: NULL as input\n");
+  if (!cb || !ffts || !num_ffts) {
+    fprintf(stderr, "cb_init: NULL as input\n");
     return (false);
   }
 
-  size_t num_edges= factorial(num_ffts - 1);
+  cb->num_edges= factorial(num_ffts - 1);
+  cb->num_ffts= num_ffts;
+  cb->len_fft= ffts[0].len_fft;
 
-  size_t len_fft= ffts[0].len_fft;
+  cb->frame_no= 0;
 
   for (size_t i=0; i<num_ffts; i++) {
-    if (ffts[i].len_fft != len_fft) {
-      fprintf(stderr, "cb_run: fft lengths do not match\n");
+    if (ffts[i].len_fft != cb->len_fft) {
+      fprintf(stderr, "cb_init: fft lengths do not match\n");
       return(false);
     }
   }
 
-  fftwf_complex *tmp_cplx= NULL;
-  float *tmp_real= NULL;
-  float *mag_acc= NULL;
+  cb->tmp_cplx= fftwf_alloc_complex(cb->len_fft);
+  cb->tmp_real= fftwf_alloc_real(cb->len_fft);
 
-  tmp_cplx= fftwf_alloc_complex(len_fft);
-  tmp_real= fftwf_alloc_real(len_fft);
-  mag_acc= fftwf_alloc_real(len_fft);
-
-  if(!tmp_cplx || !tmp_real || !mag_acc) {
-    fprintf(stderr, "cb_run: allocating temp buffer failed\n");
+  if(!cb->tmp_cplx || !cb->tmp_real) {
+    fprintf(stderr, "cb_init: allocating temp buffers failed\n");
 
     return(false);
   }
 
-  struct {
-    struct fft_thread *thread;
-    struct fft_buffer *buffer;
-  } inputs[num_ffts];
+  cb->inputs= calloc(num_ffts, sizeof(*cb->inputs));
+  cb->outputs= calloc(num_ffts, sizeof(*cb->outputs));
 
-  for(size_t fi=0; fi<num_ffts; fi++) {
-    inputs[fi].thread= &ffts[fi];
-    inputs[fi].buffer= NULL;
+  if(!cb->inputs || !cb->outputs) {
+    fprintf(stderr, "cb_init: allocating i/o buffers failed\n");
+
+    return(false);
   }
 
-  struct {
-    size_t input_a;
-    size_t input_b;
-
-    fftwf_complex *mean;
-  } outputs[num_edges];
+  for(size_t fi=0; fi<num_ffts; fi++) {
+    cb->inputs[fi].thread= &ffts[fi];
+    cb->inputs[fi].buffer= NULL;
+  }
 
   for(size_t ina=0, i=0; ina<num_ffts; ina++) {
     for(size_t inb=ina+1; inb<num_ffts; inb++, i++) {
       fprintf(stderr, "cb_run: edge %ld: %ld <-> %ld\n", i, ina, inb);
 
-      outputs[i].input_a= ina;
-      outputs[i].input_b= inb;
+      cb->outputs[i].input_a= ina;
+      cb->outputs[i].input_b= inb;
 
-      outputs[i].mean= fftwf_alloc_complex(len_fft);
+      cb->outputs[i].acc= fftwf_alloc_complex(cb->len_fft);
 
-      if(!outputs[i].mean) {
+      if(!cb->outputs[i].acc) {
         fprintf(stderr, "cb_run: allocating mean buffer failed\n");
 
         return(false);
       }
 
-      memset(outputs[i].mean, 0, sizeof(*outputs[i].mean) * len_fft);
+      memset(cb->outputs[i].acc, 0, sizeof(*cb->outputs[i].acc) * cb->len_fft);
     }
   }
 
-  for(uint64_t frame=0; ; frame++) {
-    for(size_t fi=0; fi<num_ffts; fi++) {
-      inputs[fi].buffer= ft_get_frame(inputs[fi].thread, frame);
+  return(true);
+}
 
-      if(!inputs[fi].buffer) {
-        fprintf(stderr, "cb_run: Getting frame from fft_thread failed\n");
+bool cb_step(struct combiner *cb, float *mag_dst, float **phase_dsts)
+{
+  do {
+    for(size_t fi=0; fi<cb->num_ffts; fi++) {
+      cb->inputs[fi].buffer= ft_get_frame(cb->inputs[fi].thread, cb->frame_no);
+
+      if(!cb->inputs[fi].buffer) {
+        fprintf(stderr, "cb_step: Getting frame from fft_thread failed\n");
 
         return(false);
       }
     }
 
-    for(size_t ei=0; ei<num_edges; ei++) {
-      size_t ina= outputs[ei].input_a;
-      size_t inb= outputs[ei].input_b;
+    for(size_t ei=0; ei<cb->num_edges; ei++) {
+      size_t ina= cb->outputs[ei].input_a;
+      size_t inb= cb->outputs[ei].input_b;
 
       /* Calculate Phase difference between
        * the two inputs for all frequencies */
-      volk_32fc_x2_multiply_conjugate_32fc(tmp_cplx,
-                                           inputs[ina].buffer->out,
-                                           inputs[inb].buffer->out,
-                                           len_fft);
+      volk_32fc_x2_multiply_conjugate_32fc(cb->tmp_cplx,
+                                           cb->inputs[ina].buffer->out,
+                                           cb->inputs[inb].buffer->out,
+                                           cb->len_fft);
 
-      /* Calculate the weigthed mean between old and new value.
-       * Using one of the inputs to add as target might be a bad idea,
-       * as it is not documented but it looks fine in the volk source. */
-      volk_32f_s32f_normalize((float *)outputs[ei].mean,
-                              1.0/CB_WEIGHT_OLD,
-                              2*len_fft);
-
-      volk_32f_x2_add_32f((float *)outputs[ei].mean,
-                          (float *)outputs[ei].mean,
-                          (float *)tmp_cplx,
-                          2*len_fft);
-
-      volk_32f_s32f_normalize((float *)outputs[ei].mean,
-                              CB_WEIGHT_OLD+1,
-                              2*len_fft);
+      volk_32f_x2_add_32f((float *)cb->outputs[ei].acc,
+                          (float *)cb->outputs[ei].acc,
+                          (float *)cb->tmp_cplx,
+                          2*cb->len_fft);
     }
 
-    for(size_t fi=0; fi<num_ffts; fi++) {
-      if(!ft_release_frame(inputs[fi].thread, inputs[fi].buffer)) {
-        fprintf(stderr, "cb_run: Relasing fft frame failed\n");
+    for(size_t fi=0; fi<cb->num_ffts; fi++) {
+      if(!ft_release_frame(cb->inputs[fi].thread, cb->inputs[fi].buffer)) {
+        fprintf(stderr, "cb_step: Relasing fft frame failed\n");
 
         return(false);
       }
     }
 
-    if((frame % CB_DECIMATOR) == 0) {
-      memset(mag_acc, 0, sizeof(*mag_acc) * len_fft);
+    cb->frame_no++;
+  } while(cb->frame_no % CB_DECIMATOR);
 
-      for(size_t ei=0; ei<num_edges; ei++) {
-        /* Calculate and accumulate magnitudes squared */
-        volk_32fc_magnitude_squared_32f(tmp_real,
-                                        outputs[ei].mean,
-                                        len_fft);
+  memset(mag_dst, 0, sizeof(*mag_dst) * cb->len_fft);
 
-        volk_32f_x2_add_32f(mag_acc, mag_acc, tmp_real, len_fft);
+  for(size_t ei=0; ei<cb->num_edges; ei++) {
+    /* Calculate and accumulate magnitudes squared */
+    volk_32fc_magnitude_squared_32f(cb->tmp_real,
+                                    cb->outputs[ei].acc,
+                                    cb->len_fft);
 
-        /* Calculate and output phase differences */
-        volk_32fc_s32f_atan2_32f(tmp_real,
-                                 outputs[ei].mean,
-                                 1.0,
-                                 len_fft);
+    volk_32f_x2_add_32f(mag_dst, mag_dst,
+                        cb->tmp_real, cb->len_fft);
 
-        write_flipped_fft_halves(fd, tmp_real, len_fft);
-      }
+    /* Calculate and output phase differences */
+    volk_32fc_s32f_atan2_32f(phase_dsts[ei],
+                             cb->outputs[ei].acc,
+                             1.0,
+                             cb->len_fft);
 
-      write_flipped_fft_halves(fd, mag_acc, len_fft);
-    }
+    /* Reset accumulators */
+    memset(cb->outputs[ei].acc, 0,
+           sizeof(*cb->outputs[ei].acc) * cb->len_fft);
   }
+
+  volk_32f_s32f_normalize(mag_dst,
+                          1.0/(CB_DECIMATOR * cb->num_edges),
+                          cb->len_fft);
+
+  return(true);
+}
+
+bool cb_cleanup(struct combiner *cb)
+{
+  fftwf_free(cb->tmp_cplx);
+  fftwf_free(cb->tmp_real);
+
+  free(cb->inputs);
+
+  for(size_t ei=0; ei<cb->num_edges; ei++) {
+    fftwf_free(cb->outputs[ei].acc);
+  }
+
+  free(cb->outputs);
+
+  return(true);
 }

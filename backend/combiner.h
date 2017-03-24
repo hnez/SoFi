@@ -24,4 +24,29 @@
 #define CB_WEIGHT_OLD (400)
 #define CB_DECIMATOR (163)
 
-bool cb_run(int fd, struct fft_thread *ffts, size_t num_ffts);
+struct combiner {
+  size_t num_edges;
+  size_t num_ffts;
+  size_t len_fft;
+
+  uint64_t frame_no;
+
+  fftwf_complex *tmp_cplx;
+  float *tmp_real;
+
+  struct {
+    struct fft_thread *thread;
+    struct fft_buffer *buffer;
+  } *inputs;
+
+  struct {
+    size_t input_a;
+    size_t input_b;
+
+    fftwf_complex *acc;
+  } *outputs;
+};
+
+bool cb_init(struct combiner *cb, struct fft_thread *ffts, size_t num_ffts);
+bool cb_step(struct combiner *cb, float *mag_dst, float **phase_dsts);
+bool cb_cleanup(struct combiner *cb);

@@ -36,11 +36,30 @@
 #include "window.h"
 #include "combiner.h"
 
-int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
+struct sofi_state {
+  struct sdr devs[NUM_SDRS];
+  struct fft_thread ffts[NUM_SDRS];
+  float *window;
+  struct combiner cb;
+};
+
+float *sofi_alloc_real(void)
 {
-  struct sdr devs[NUM_SDRS]= {0};
-  struct fft_thread ffts[NUM_SDRS]= {0};
-  float *window= window_hamming(FFT_LEN);
+  float *target= fftwf_alloc_real(FFT_LEN);
+
+  return(target);
+}
+
+struct sofi_state *sofi_new(void)
+{
+  struct sofi_state *s= calloc(1, sizeof(struct sofi_state));
+
+  if(!s) {
+    fprintf(stderr, "Allocating sofi state failed!\n");
+    return(NULL);
+  }
+
+  s->window= window_hamming(FFT_LEN);
 
   for (int i=0; i<NUM_SDRS; i++) {
     char path[128];
@@ -49,59 +68,84 @@ int main(__attribute__((unused)) int argc, __attribute__((unused))char **argv)
 
     fprintf(stderr, "Open dev %s\n", path);
 
-    if(!sdr_open(&devs[i], path)) {
-      return (1);
+    if(!sdr_open(&s->devs[i], path)) {
+      return (NULL);
     }
 
-    if (!sdr_connect_buffers(&devs[i], 8)) {
-      return (1);
+    if (!sdr_connect_buffers(&s->devs[i], 32)) {
+      return (NULL);
     }
 
-    if(!sdr_set_center_freq(&devs[i], 100*1000*1000)) {
-      return(1);
+    if(!sdr_set_center_freq(&s->devs[i], 975*100*1000)) {
+      return(NULL);
     }
 
-    if(!ft_setup(&ffts[i], &devs[i], window,
+    if(!ft_setup(&s->ffts[i], &s->devs[i], s->window,
                  FFT_LEN, 32, 1, true)) {
-      return(1);
+      return(NULL);
     }
   }
 
   for (int i=0; i<NUM_SDRS; i++) {
     fprintf(stderr, "Start dev %d\n", i);
 
-    if(!sdr_start(&devs[i])) {
-      return(1);
+    if(!sdr_start(&s->devs[i])) {
+      return(NULL);
     }
   }
 
   for (int i=0; i<NUM_SDRS; i++) {
     fprintf(stderr, "Speed up dev %d\n", i);
 
-    if(!sdr_set_sample_rate(&devs[i], 2000000)) {
-      return(1);
+    if(!sdr_set_sample_rate(&s->devs[i], 2000000)) {
+      return(NULL);
     }
   }
 
   fprintf(stderr, "Start syncing\n");
 
-  if(!sync_sdrs(devs, NUM_SDRS, 1<<17)) {
-    return(-1);
+  if(!sync_sdrs(s->devs, NUM_SDRS, 1<<17)) {
+    return(NULL);
   }
 
-  fprintf(stderr, "Start calculating phases\n");
+
+  fprintf(stderr, "Start fft threads\n");
 
   for (int i=0; i<NUM_SDRS; i++) {
     fprintf(stderr, "Start fft %d\n", i);
 
-    if(!ft_start(&ffts[i])) {
-      return(1);
+    if(!ft_start(&s->ffts[i])) {
+      return(NULL);
     }
   }
 
-  if (!cb_run(STDOUT_FILENO, ffts, NUM_SDRS)) {
-    return(1);
+  if(!cb_init(&s->cb, s->ffts, NUM_SDRS)) {
+    return(NULL);
   }
 
-  return(0);
+  return(s);
+}
+
+uint64_t sofi_get_nsdrs(__attribute__((unused)) struct sofi_state *s)
+{
+  return(NUM_SDRS);
+}
+
+uint64_t sofi_get_fftlen(__attribute__((unused)) struct sofi_state *s)
+{
+  return(FFT_LEN);
+}
+
+bool sofi_read(struct sofi_state *s, float *mag_dst, float **phase_dsts)
+{
+  bool ret= cb_step(&s->cb, mag_dst, phase_dsts);
+
+  return(ret);
+}
+
+bool sofi_destroy(__attribute__((unused)) struct sofi_state *s)
+{
+  fprintf(stderr, "sofi_destroy: not yet implemented\n");
+
+  return(true);
 }

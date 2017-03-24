@@ -21,8 +21,7 @@
 
 #include "fft_thread.h"
 
-#define CB_WEIGHT_OLD (400)
-#define CB_DECIMATOR (163)
+#define CB_DECIMATOR (250)
 
 struct combiner {
   size_t num_edges;

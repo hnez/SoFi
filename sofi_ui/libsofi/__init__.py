@@ -92,4 +92,4 @@ class Sofi(object):
             for phb in self.phase_bufs
         )
 
-        return(np_mag, np_mag)
+        return(np_mag, np_phase)

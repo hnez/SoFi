@@ -104,7 +104,8 @@ struct sofi_state *sofi_new(void)
 
   fprintf(stderr, "Start syncing\n");
 
-  if(!sync_sdrs(s->devs, NUM_SDRS, 1<<17)) {
+  //fprintf(stderr, "*** WARNING: Skipping sync process ***\n");
+  if(!sync_sdrs(s->devs, NUM_SDRS, 1<<18)) {
     return(NULL);
   }
 

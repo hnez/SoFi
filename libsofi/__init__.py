@@ -1,4 +1,3 @@
-
 # Copyright 2017 Leonard Göhrs <leonard@goehrs.eu>
 #
 # This is free software; you can redistribute it and/or modify
@@ -16,10 +15,13 @@
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
 
+import os
+
 import numpy as np
 import ctypes as ct
 
-_libsofi= np.ctypeslib.load_library('libsofi', 'backend')
+moddir= os.path.dirname(__file__)
+_libsofi= np.ctypeslib.load_library('libsofi', moddir)
 
 class Sofi(object):
     def __init__(self):

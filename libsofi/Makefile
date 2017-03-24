@@ -22,4 +22,4 @@ rf_monitor: $(OBJECTS) rf_monitor.c
 
 .PHONY: clean
 clean:
-	rm -f $(OBJECTS) sofi vu_meter
+	rm -f $(OBJECTS) libsofi.so rf_monitor

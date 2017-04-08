@@ -72,7 +72,7 @@ struct sofi_state *sofi_new(void)
       return (NULL);
     }
 
-    if (!sdr_connect_buffers(&s->devs[i], 32)) {
+    if (!sdr_connect_buffers(&s->devs[i], 8)) {
       return (NULL);
     }
 
@@ -94,7 +94,7 @@ struct sofi_state *sofi_new(void)
     }
   }
 
-  for (int i=0; i<NUM_SDRS; i++) {
+  for (int i=NUM_SDRS-1; i>=0; i--) {
     fprintf(stderr, "Speed up dev %d\n", i);
 
     if(!sdr_set_sample_rate(&s->devs[i], 2000000)) {

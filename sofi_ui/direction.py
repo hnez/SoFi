@@ -266,7 +266,7 @@ class AntennaArray(object):
         edge_phase_errors= np.zeros(len(edge_phase_comps))
         edge_sample_errors= np.zeros(len(edge_sample_comps))
 
-        # Zip together all the parameters tha will be needed
+        # Zip together all the parameters that will be needed
         # in the per edge loop
         edges_properties= zip(it.count(0), phases, edge_phase_comps, edge_sample_comps)
 
@@ -275,24 +275,17 @@ class AntennaArray(object):
         for (i, edge_frame, edge_ph_comp, edge_sa_comp) in edges_properties:
             edge_frame_compensated= self.compensate_edge_errors(edge_frame, edge_ph_comp, edge_sa_comp)
 
-            efc_raw= edge_frame_compensated.astype(np.float32).tobytes()
-            sys.stdout.buffer.write(efc_raw)
-
             compensated_phases.append(edge_frame_compensated)
 
             # Calculate and store the current errors
             # For later analysis
             (edge_phase_errors[i], edge_sample_errors[i])= self.calc_edge_errors(edge_frame_compensated)
 
-
-        for (st, en) in ((390, 420), (251, 261), (380, 388), (507, 517), (635, 645), (760, 770)):
-            dir_info= self.get_direction_info(compensated_phases, st, en)
-            dir_raw= dir_info.astype(np.float32).tobytes()
-            sys.stdout.buffer.write(dir_raw)
-
-        # Output the current magnitude as is
-        mag_raw= magnitude.astype(np.float32).tobytes()
-        sys.stdout.buffer.write(mag_raw)
+        # Calculate direction informations
+        dir_infos= list(
+            self.get_direction_info(compensated_phases, st, en)
+            for (st, en) in self.signal_points
+        )
 
         # Determine the per antenna errors from the
         # per edge errors. This uses a Matrix that
@@ -307,19 +300,7 @@ class AntennaArray(object):
         for (comp, err) in zip(self.ant_sample_err_comps, ant_sample_errors):
             comp.update(err)
 
-    def read_frameset(self, fd):
-        frames= list()
-
-        for ei in range(self.edges_count + 1):
-            raw_frame= fd.read(4 * self.fft_len)
-            np_frame= np.frombuffer(raw_frame, np.float32)
-
-            if len(np_frame) != self.fft_len:
-                raise(Exception('Failed to read frame'))
-
-            frames.append(np_frame)
-
-        return((frames[:-1], frames[-1]))
+        return(dir_infos, compensated_phases)
 
     def find_signalpoints(self, magnitudes):
         peaks= self.find_peaks(magnitudes)
@@ -335,37 +316,3 @@ class AntennaArray(object):
 
         if len(new_points) >=3:
             self.noise_points= new_points
-
-antennas= [
-    ( 0.0,  0.0),
-    ( 0.0,  0.35),
-    ( 0.42, 0.35),
-    ( 0.42,  0.0)
-]
-
-antarr= AntennaArray(antennas, 1024, 1024, 99.0, 101.0)
-
-for frameset_num in it.count(0):
-    (phases, magnitude)= antarr.read_frameset(sys.stdin.buffer)
-
-    antarr.process_edge_frameset(phases, magnitude)
-
-    if (frameset_num % 100) == 10:
-        antarr.find_noisepoints(magnitude)
-
-        print('Noisepoints:', file=sys.stderr)
-        for (nps, npe) in antarr.noise_points:
-            print('{}MHz - {}MHz'.format(
-                antarr.frequencies[nps] / 1e6,
-                antarr.frequencies[npe] / 1e6
-            ), file=sys.stderr)
-
-
-        antarr.find_signalpoints(magnitude)
-
-        print('Signalpoints:', file=sys.stderr)
-        for (nps, npe) in antarr.signal_points:
-            print('{} - {}'.format(
-                nps,
-                npe
-            ), file=sys.stderr)

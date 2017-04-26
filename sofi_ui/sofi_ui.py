@@ -76,7 +76,7 @@ class ScopeWindow(object):
     def setup_direction_window(self):
         phi_values= np.linspace(0, 2*np.pi, 1024)
         r_values= np.zeros(1024)
-        r_values[0]= 4e-6
+        r_values[0]= 0.1
 
         # Do whatever matplotlib needs to set up a
         # figure for plotting
@@ -151,12 +151,12 @@ class ScopeWindow(object):
 antenna_array= AntennaArray(
     (
         ( 0.0,  0.0),
-        ( 0.0,  0.51),
-        ( 0.71, 0.51),
-        ( 0.71, 0.0)
+        ( 0.0,  0.175),
+        ( 0.24, 0.175),
+        ( 0.24, 0.0)
     ),
     1024, 1024,
-    96.5, 98.5
+    96.5e6, 98.5e6
 )
 
 win= ScopeWindow(
